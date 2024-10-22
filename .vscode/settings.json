@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "random": "c",
+        "time.h": "c",
+        "gameboy.h": "c",
+        "opcodes.h": "c"
+    }
+}
