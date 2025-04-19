@@ -4,5 +4,10 @@
         "time.h": "c",
         "gameboy.h": "c",
         "opcodes.h": "c"
-    }
+    },
+    "cSpell.words": [
+        "gameboy",
+        "Gameboy",
+        "wram"
+    ]
 }
