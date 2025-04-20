@@ -1,14 +1,18 @@
 #include <stdio.h>
-#include "cbc.h"
+#include "defs.h"
+#include "log.h"
+
+struct {
+    int dump;
+} flags;
 
 
-int main() {
-    gameboy_init();
+int main(int argc, char *argv[]) {
+    log_set_level(LOG_TRACE);
 
-    // while (1) {
-    //     // 
-    // }
+    gameboy_init(argv[1]);
 
-    gameboy_free();
+    return gameboy_loop();
+    // printf("AF: %04X\n", AF());
     return 0;
 } 
