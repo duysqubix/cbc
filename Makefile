@@ -1,5 +1,11 @@
 CC = gcc
-CFLAGS = -I./Include -Wall -Wextra
+CFLAGS = -I./Include -Wall -Wextra -g
+ifeq ($(DEBUG),1)
+    CFLAGS += -O0
+else
+    CFLAGS += -O3
+endif
+LDFLAGS = -lSDL2 -lSDL2_ttf
 SRCDIR = src
 OBJDIR = obj
 SANDBOX_SRC = sandbox.c
@@ -8,17 +14,22 @@ SRCS = $(wildcard $(SRCDIR)/*.c)
 OBJS = $(SRCS:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 TARGET = cbc
 
-.PHONY: all clean directories sandbox 
+.PHONY: all clean directories sandbox rom rom-clean
 
 all: directories $(TARGET)
 
 sandbox: $(SANDBOX_SRC)
-	$(CC) $(SANDBOX_SRC) -o sandbox
+	$(CC) $(SANDBOX_SRC) -o sandbox $(LDFLAGS)
 	./sandbox
 
+rom:
+	$(MAKE) -C default_rom
+
+rom-clean:
+	$(MAKE) -C default_rom clean
 
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $@
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -26,5 +37,5 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 directories:
 	mkdir -p $(OBJDIR)
 
-clean:
+clean: rom-clean
 	rm -rf $(OBJDIR) $(TARGET) sandbox 

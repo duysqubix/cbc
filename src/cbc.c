@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <time.h>
 #include "defs.h"
@@ -12,6 +11,7 @@ opcycles_t  _tick_cpu(opcycles_t cycles);
 uint8_t     _fetch_item(uint16_t address);
 void        _write_item(uint16_t address, uint16_t value);
 opcycles_t  _execute(opcode_t opcode, uint16_t value);
+opcycles_t _executeCB(opcode_t opcode);
 
 void randomize(uint8_t *data, size_t size) {
     for (size_t i = 0; i < size; i++) {
@@ -76,8 +76,9 @@ int gameboy_loop(){
 }
 
 opcycles_t _tick(){
-    static opcode_t opcode;
     static opcycles_t cycles = 4; 
+
+    dump_registers();
 
     //update cpu 
     cycles = _tick_cpu(cycles);
@@ -86,8 +87,9 @@ opcycles_t _tick(){
     //update timers
     //update lcd
     // handle interrupts
-    dump_registers();
-    getchar();
+    if (STEP_MODE) {
+        getchar();
+    }
     return 0;
 }
 
@@ -96,7 +98,19 @@ opcycles_t _tick_cpu(opcycles_t cycles){
     opcode_t opcode = (opcode_t)_fetch_item(REG_PC);
     uint16_t value = 0;
 
-    switch (OPCODE_LENGTH[opcode]) {
+    size_t offset = 0;
+    bool cb = false;
+
+    if(opcode == 0xCB){
+        cb = true;
+        INCR_PC();
+        opcode = _fetch_item(REG_PC);
+        opcycles += 1;  // CB opcode takes 1 cycle by default.
+        offset = 0x100;
+    }
+
+    log_trace("Opcode Length: %d", OPCODE_LENGTH[(size_t)(opcode+offset)]);
+    switch (OPCODE_LENGTH[(size_t)(opcode+offset)]) {
         case 1:
             INCR_PC();
             break;
@@ -105,6 +119,7 @@ opcycles_t _tick_cpu(opcycles_t cycles){
         case 2:
             value = _fetch_item(REG_PC+1);
             INCR_PC();
+            INCR_PC();
             break;
 
         // 16bit immediate
@@ -112,18 +127,25 @@ opcycles_t _tick_cpu(opcycles_t cycles){
             value = (_fetch_item(REG_PC+2) << 8) | _fetch_item(REG_PC+1);
             INCR_PC();
             INCR_PC();
+            INCR_PC();
             break;
     }
 
-    log_trace("Opcode: %02X, Value: %04X", opcode, value);
 
-    opcycles += _execute(opcode, value);
+    if (cb){
+        log_trace("CB Opcode: CB:%02X | %s", opcode, OPCODE_NAMES[(size_t)(opcode)+offset]);
+        opcycles += _executeCB(opcode);
+    } else {
+        log_trace("|Opcode: %02X, Value: %04X | %s", opcode, value, OPCODE_NAMES[(size_t)opcode]);
 
-    return opcycles;
+        opcycles += _execute(opcode, value);
+    }
+
+    return opcycles+cycles;
 }
 
 uint8_t _fetch_item(uint16_t address){
-    log_trace("Fetching item at address: %04X", address);
+    // log_trace("Fetching item at address: %04X", address);
     switch (address) {
         case 0x0000 ... 0x3FFF:
             return ROM_GET(0, address);
@@ -175,20 +197,110 @@ void _write_item(uint16_t address, uint16_t value){
 }
 
 opcycles_t _execute(opcode_t opcode, uint16_t value){
-    switch (opcode) {
-        case 0x00:
-            INCR_PC();
-            return 1;
-        case 0x06:
-            REG_B = value;
-            INCR_PC();
-            return 2;
+    uint16_t sp_high = 0x00;
+    uint16_t sp_low = 0x00;
+    uint8_t buf8 = 0x00;
+    
 
-        case 0x37:
+    switch (opcode) {
+        case 0x00: // NOP       
+            return MCYCLE_1;
+
+        case 0x06: // LD B,n
+            REG_B = value;
+            return MCYCLE_2;
+
+        case 0x21:
+            REG_H = value >> 8;
+            REG_L = value & 0xFF;
+            return MCYCLE_3;
+
+        case 0x37: // SCF
             FLAG_C_SET();
-            return 1;
+            return MCYCLE_1;
+
+        case 0x30: // JR NC,e
+            buf8 = (uint8_t)(value);
+            if (!FLAG_C_IS_SET()){  
+                REG_PC += buf8;
+                return MCYCLE_3;
+            }
+
+            REG_PC += 2;
+            return MCYCLE_2;
+
+        case 0x31: // LD SP, nn
+            REG_SP = HL();
+            return MCYCLE_2;
+
+        case 0x38: // JR C,e
+            buf8 = (uint8_t)(value);
+            if (FLAG_C_IS_SET()){
+                REG_PC += buf8;
+                return MCYCLE_3;
+            }
+
+            REG_PC += 2;
+            return MCYCLE_2;
+            
+
+        case 0xC3: // JP nn
+            REG_PC = value;
+            return MCYCLE_4;
+        
+        case 0xF3: // DI
+            IE = 0x00;
+            return MCYCLE_1;
+
+        case 0xF6: // OR d8
+            FLAG_N_RESET();
+            FLAG_H_RESET();
+            FLAG_C_RESET();
+            FLAG_Z_RESET();
+
+            REG_A |= (uint8_t)value;
+
+            if (!REG_A){ FLAG_Z_SET();}
+
+            return MCYCLE_2;
+
+        case 0xFF: // RST 38H
+            sp_high = REG_SP -1;
+            sp_low = REG_SP -2;
+            _write_item(sp_high, REG_PC >> 8);
+            _write_item(sp_low, REG_PC & 0xFF);
+
+            REG_SP -= 2;
+            REG_PC = 0x0038;
+            return MCYCLE_4;
+
         default:
             log_error("Invalid opcode: %02X", opcode);
+            exit(1);
+    }
+}
+
+opcycles_t _executeCB(opcode_t opcode){
+    // uint16_t buf16 = 0x00;
+    uint8_t buf8 = 0x00;
+    switch (opcode) {
+        case 0x00: // NOP
+            return MCYCLE_1;
+
+        case 0xEE: // SET 5, (HL)
+            buf8 = _fetch_item(HL());
+            BIT_SET(buf8, 5);
+            _write_item(HL(), buf8);
+            return MCYCLE_4;
+
+        case 0xF6: // SET 6, (HL)
+            buf8 = _fetch_item(HL());
+            BIT_SET(buf8, 6);
+            _write_item(HL(), buf8);
+            return MCYCLE_4;
+
+        default:
+            log_error("Invalid CB opcode: %02X", opcode);
             exit(1);
     }
 }

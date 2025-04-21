@@ -106,11 +106,14 @@ void log_set_level(int level) {
   L.level = level;
 }
 
+int get_log_level(){
+  return L.level;
+}
+
 
 void log_set_quiet(bool enable) {
   L.quiet = enable;
 }
-
 
 int log_add_callback(log_LogFn fn, void *udata, int level) {
   for (int i = 0; i < MAX_CALLBACKS; i++) {
@@ -138,6 +141,10 @@ static void init_event(log_Event *ev, void *udata) {
 
 
 void log_log(int level, const char *file, int line, const char *fmt, ...) {
+  if (L.level > level) {
+    return;
+  }
+
   log_Event ev = {
     .fmt   = fmt,
     .file  = file,

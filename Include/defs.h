@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define ROM_BANK_SIZE   1024*16 // 16KB
 #define RAM_BANK_SIZE   1024*8 // 8KB
@@ -30,24 +31,41 @@
 #define VRAM_SET(bank, offset, value) VRAM[(bank*RAM_BANK_SIZE) + offset] = value
 #define VRAM_GET(bank, offset) VRAM[(bank*RAM_BANK_SIZE) + offset]
 
+
+#define MCYCLE_1 1 
+#define MCYCLE_2 2
+#define MCYCLE_3 3
+#define MCYCLE_4 4
+
 #define AF() (uint16_t)(REG_A << 8 | REG_F)
 #define BC() (uint16_t)(REG_B << 8 | REG_C)
 #define DE() (uint16_t)(REG_D << 8 | REG_E)
 #define HL() (uint16_t)(REG_H << 8 | REG_L)
 
-#define FLAG_Z_SET()    REG_F |=  0b10000000
-#define FLAG_Z_RESET()  REG_F &= ~0b10000000
-#define FLAG_N_SET()    REG_F |=  0b01000000
-#define FLAG_N_RESET()  REG_F &= ~0b01000000
-#define FLAG_H_SET()    REG_F |=  0b00100000
-#define FLAG_H_RESET()  REG_F &= ~0b00100000
-#define FLAG_C_SET()    REG_F |=  0b00010000
-#define FLAG_C_RESET()  REG_F &= ~0b00010000
+#define FLAG_Z_SET()    (REG_F |=  0b10000000)
+#define FLAG_Z_RESET()  (REG_F &= ~0b10000000)
+#define FLAG_Z_IS_SET() (REG_F & 0b10000000)
+
+#define FLAG_N_SET()    (REG_F |=  0b01000000)
+#define FLAG_N_RESET()  (REG_F &= ~0b01000000)
+#define FLAG_N_IS_SET() (REG_F & 0b01000000)
+
+#define FLAG_H_SET()    (REG_F |=  0b00100000)
+#define FLAG_H_RESET()  (REG_F &= ~0b00100000)
+#define FLAG_H_IS_SET() (REG_F & 0b00100000)
+
+#define FLAG_C_SET()    (REG_F |=  0b00010000)
+#define FLAG_C_RESET()  (REG_F &= ~0b00010000)
+#define FLAG_C_IS_SET() (REG_F & 0b00010000)
 
 
-#define INCR_PC() REG_PC++
-#define INCR_SP() REG_SP--
-#define DECR_SP() REG_SP++
+#define INCR_PC() (REG_PC++)
+#define INCR_SP() (REG_SP--)
+#define DECR_SP() (REG_SP++)
+
+#define BIT_SET(value, bit) (value |= (1 << bit))
+#define BIT_RESET(value, bit) (value &= ~(1 << bit))
+#define BIT_IS_SET(value, bit) (value & (1 << bit))
 
 typedef uint8_t opcode_t;
 typedef uint64_t opcycles_t;
@@ -79,6 +97,9 @@ extern uint8_t SRAM_CURRENT_BANK;
 extern uint8_t WRAM_CURRENT_BANK;
 
 extern uint8_t OPCODE_LENGTH[512];
+extern char * const OPCODE_NAMES[512];
+extern bool STEP_MODE;
+
 
 void gameboy_init(const char *rom_path);
 void gameboy_free();
