@@ -148,6 +148,10 @@ void parse_flags(int *argc, char ***argv){
 
 
 int main(int argc, char* argv[]) {
+    log_set_level(LOG_WARN);    
+
+    parse_flags(&argc, &argv);
+
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
     SDL_Texture* texture = NULL;
@@ -156,6 +160,9 @@ int main(int argc, char* argv[]) {
 
     // Setup SDL
     initialize_sdl(&window, &renderer, &texture);
+
+    // Setup Emulator 
+    gameboy_init(argv[0]);
 
     // Main game loop
     while (running) {

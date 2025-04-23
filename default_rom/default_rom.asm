@@ -31,90 +31,96 @@ SECTION "Main", ROM0[$150]
 Main:
 	nop
 	di
-	jp .setup
+	ld hl, $FFFE
+	jp .test
+
+.test 
+	inc hl 
+	jp .test
 
 
-.waitVBlank
-	ldh a, [rLY]
-	cp 144
-	jr c, .waitVBlank
-	ret
 
-.setup
-	ld hl, rLCDC
-	set 6, [hl]
-	set 5, [hl]
-	ld hl, rWY
-	ld [hl], 144
-	inc hl
-	ld [hl], 43
+; .waitVBlank
+; 	ldh a, [rLY]
+; 	cp 144
+; 	jr c, .waitVBlank
+; 	ret
 
-	ld bc, $8400
-	ld de, $8700
-	ld hl, Tileset
+; .setup
+; 	ld hl, rLCDC
+; 	set 6, [hl]
+; 	set 5, [hl]
+; 	ld hl, rWY
+; 	ld [hl], 144
+; 	inc hl
+; 	ld [hl], 43
 
-.readTileset
-	call .waitVBlank
-	ld a, [hli]
-	ld [bc], a
-	inc bc
-	ld a, b
-	cp a, d
-	jr c, .readTileset
+; 	ld bc, $8400
+; 	ld de, $8700
+; 	ld hl, Tileset
 
-	ld hl, Tilemap
-	ld bc, $9C00
-	ld de, $9C0E
+; .readTileset
+; 	call .waitVBlank
+; 	ld a, [hli]
+; 	ld [bc], a
+; 	inc bc
+; 	ld a, b
+; 	cp a, d
+; 	jr c, .readTileset
 
-.readTilemap
-	call .waitVBlank
-	ld a, [hli]
-	ld [bc], a
-	inc bc
-	ld a, c
-	cp a, e
-	jr c, .readTilemap
+; 	ld hl, Tilemap
+; 	ld bc, $9C00
+; 	ld de, $9C0E
 
-	add $12
-	ld c, a
-	ld a, e
-	add $20
-	ld e, a
-	ld a, e
+; .readTilemap
+; 	call .waitVBlank
+; 	ld a, [hli]
+; 	ld [bc], a
+; 	inc bc
+; 	ld a, c
+; 	cp a, e
+; 	jr c, .readTilemap
 
-	cp a, $2F
-	jr c, .readTilemap
+; 	add $12
+; 	ld c, a
+; 	ld a, e
+; 	add $20
+; 	ld e, a
+; 	ld a, e
 
-	ld hl, _OAMRAM
+; 	cp a, $2F
+; 	jr c, .readTilemap
 
-.clearOAM
-	call .waitVBlank
-	ld [hl], 0
-	inc hl
-	ld a, l
-	cp a, $F0
-	jr nz, .clearOAM
+; 	ld hl, _OAMRAM
 
-.loop
-	ld a, [rWY]
-	cp a, 90
-	jr c, .loop
-.inner_loop ; Used in test
-	ldh a, [rDIV]
-	cp a, 255
-	jp z, .move
-	jr .loop
+; .clearOAM
+; 	call .waitVBlank
+; 	ld [hl], 0
+; 	inc hl
+; 	ld a, l
+; 	cp a, $F0
+; 	jr nz, .clearOAM
 
-.sync
-	ldh a, [rLY]
-	cp 144
-	jr nz, .sync
-	ret
+; .loop
+; 	ld a, [rWY]
+; 	cp a, 90
+; 	jr c, .loop
+; .inner_loop ; Used in test
+; 	ldh a, [rDIV]
+; 	cp a, 255
+; 	jp z, .move
+; 	jr .loop
 
-.move
-	call .sync
-	ld hl, rWY
-	dec [hl]
+; .sync
+; 	ldh a, [rLY]
+; 	cp 144
+; 	jr nz, .sync
+; 	ret
 
-	ldh [rDIV], a
-	jr .loop
+; .move
+; 	call .sync
+; 	ld hl, rWY
+; 	dec [hl]
+
+; 	ldh [rDIV], a
+; 	jr .loop
