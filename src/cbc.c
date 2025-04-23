@@ -196,7 +196,7 @@ void _write_item(uint16_t address, uint16_t value){
     ROM[address] = value;
 }
 
-opcycles_t _execute(opcode_t opcode, uint16_t value){
+inline opcycles_t _execute(opcode_t opcode, uint16_t value){
     uint16_t sp_high = 0x00;
     uint16_t sp_low = 0x00;
     uint8_t buf8 = 0x00;
@@ -205,6 +205,11 @@ opcycles_t _execute(opcode_t opcode, uint16_t value){
     switch (opcode) {
         case 0x00: // NOP       
             return MCYCLE_1;
+
+        case 0x01: // LD BC, nn 
+            REG_B = value & 0xFF;
+            REG_C = value >> 8;
+            return MCYCLE_3;
 
         case 0x06: // LD B,n
             REG_B = value;
