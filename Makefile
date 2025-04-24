@@ -16,7 +16,7 @@ TARGET = cbc
 
 .PHONY: all clean directories sandbox rom rom-clean
 
-all: directories $(TARGET)
+all: clean directories $(TARGET)
 
 sandbox: $(SANDBOX_SRC)
 	$(CC) $(SANDBOX_SRC) -o sandbox $(LDFLAGS)
@@ -25,8 +25,6 @@ sandbox: $(SANDBOX_SRC)
 rom:
 	$(MAKE) -C default_rom
 
-rom-clean:
-	$(MAKE) -C default_rom clean
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
@@ -34,8 +32,8 @@ $(TARGET): $(OBJS)
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-directories:
+directories: 
 	mkdir -p $(OBJDIR)
 
-clean: rom-clean
+clean:
 	rm -rf $(OBJDIR) $(TARGET) sandbox 

@@ -7,19 +7,20 @@
 
 int         _tick();
 opcycles_t  _tick_cpu();
-
-uint8_t     _fetch_item(uint16_t address);
-void        _write_item(uint16_t address, uint16_t value);
+uint8_t     _fetch_item(address_t address);
+void        _write_item(address_t address, uint8_t value);
 opcycles_t  _execute(opcode_t opcode, uint16_t value);
 opcycles_t _executeCB(opcode_t opcode);
 
+bool CPU_HALTED = false;
+bool CPU_STUCK = false;
 
 void dump_registers(){
     if (get_log_level() > LOG_TRACE){ return; }
 
     char buf[100];
 
-    snprintf(buf, sizeof(buf), "\nA: %02X\t\tF: %04b\n" 
+    snprintf(buf, sizeof(buf), "\nA: %02X\t\tF: %04b [znhc]\n" 
         "B: %02X\t\tC: %02X\n" 
         "D: %02X\t\tE: %02X\n" 
         "H: %02X\t\tL: %02X\t\t(HL): %02X\n" 
@@ -71,6 +72,8 @@ void gameboy_init(const char *rom_path){
     REG_PC = 0x0100;
     REG_SP = 0xFFFE;
 
+    IO[0x44] = 145;
+
     _load_rom(rom_path);
 }
 
@@ -92,18 +95,24 @@ int gameboy_loop(){
 }
 
 int _tick(){
-    static opcycles_t cycles = 0; 
-
-    dump_registers();
-
+    opcycles_t cycles = 0; 
+    address_t old_pc = REG_PC;
+    address_t old_sp = REG_SP;
+    
     //update cpu 
     cycles += _tick_cpu(cycles);
+    
+    if (!CPU_HALTED && (old_pc == REG_PC) && (old_sp == REG_SP) && !CPU_STUCK){
+        CPU_STUCK = true;
+        log_warn("CPU Stuck at PC: %04X, SP: %04X", REG_PC, REG_SP);
+        getchar();
+    }
 
     //update cartridge
     //update timers
     //update lcd
     // handle interrupts
-    if (STEP_MODE) {
+    if (DEBUG_STEP_MODE) {
         getchar();
     }
     return cycles;
@@ -115,6 +124,9 @@ opcycles_t _tick_cpu(){
     uint16_t    value = 0x0000;
     size_t      offset = 0x00;
     bool        cb = false;
+
+    dump_registers();
+
 
     if(opcode == 0xCB){
         cb = true;
@@ -162,7 +174,7 @@ opcycles_t _tick_cpu(){
     return opcycles;
 }
 
-uint8_t _fetch_item(uint16_t address){
+uint8_t _fetch_item(address_t address){
     // log_trace("Fetching item at address: %04X", address);
     switch (address) {
         case 0x0000 ... 0x3FFF:
@@ -210,7 +222,12 @@ uint8_t _fetch_item(uint16_t address){
     }
 }
 
-void _write_item(uint16_t address, uint16_t value){
+void _write_item(address_t address, uint8_t value){
+    // write serial to stdout 
+    if (address == 0xFF02 && value == 0x81){
+        printf("%c", IO[0x01]);
+    }
+
     switch (address) {
         case 0x0000 ... 0x3FFF:
             // Write to Cartridge
@@ -270,10 +287,6 @@ void _write_item(uint16_t address, uint16_t value){
 }
 
 inline opcycles_t _execute(opcode_t opcode, uint16_t value){
-    uint16_t sp_high = 0x00;
-    uint16_t sp_low = 0x00;
-    uint8_t  buf8 = 0x00;
-    
 
     switch (opcode) {
         case 0x00: // NOP       
@@ -288,17 +301,34 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             REG_B = value;
             return MCYCLE_2;
 
-        case 0x21:
+        case 0x18: // JR r8
+            REG_PC += (int8_t)(value);
+            return MCYCLE_3;
+
+        case 0x20: // JR NZ, e
+            if (!FLAG_Z_IS_SET()){
+                REG_PC += (int8_t)(value);
+                return MCYCLE_3;
+            }
+            return MCYCLE_2;
+
+        case 0x21: // LD HL, nn
             REG_H = value >> 8;
             REG_L = value & 0xFF;
             return MCYCLE_3;
 
         case 0x23: // INC HL
-            REG_L++;
-            if (REG_L == 0x00){
+            if (++REG_L == 0x00){
                 REG_H++;
             }
             return MCYCLE_1;
+
+        case 0x28: // JR Z, e
+            if (FLAG_Z_IS_SET()){
+                REG_PC += (int8_t)(value);
+                return MCYCLE_3;
+            }
+            return MCYCLE_2;
 
         case 0x37: // SCF
             FLAG_C_SET();
@@ -306,11 +336,10 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
 
         case 0x30: // JR NC,e
             if (!FLAG_C_IS_SET()){  
-                REG_PC += (uint8_t)(value);
+                REG_PC += (int8_t)(value);
                 return MCYCLE_3;
             }
 
-            REG_PC += 2;
             return MCYCLE_2;
 
         case 0x31: // LD SP, nn
@@ -318,49 +347,131 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0x36: // LD (HL), u8
-            _write_item(HL(), value);
+            _write_item((address_t)HL(), value);
             return MCYCLE_3;
 
         case 0x38: // JR C,e
             if (FLAG_C_IS_SET()){
-                REG_PC += (uint8_t)(value);
+                REG_PC += (int8_t)(value);
                 return MCYCLE_3;
             }
-
-            REG_PC += 2;
             return MCYCLE_2;
-            
+
+        case 0x3C: // INC A
+            REG_A++;
+            return MCYCLE_1;
+
+        case 0x3E: // LD A, n
+            REG_A = (uint8_t)value;
+            return MCYCLE_2;
+
+        case 0x57: // LD D, A
+            REG_D = REG_A;
+            return MCYCLE_1;
+
+        case 0x67: // LD H, A
+            REG_H = REG_A;
+            return MCYCLE_1;
+
+        case 0x6F: // LD L, A
+            REG_L = REG_A;
+            return MCYCLE_1;
+
+        case 0x7A: // LD A, D 
+            REG_A = REG_D;
+            return MCYCLE_1;
+
+        case 0x7C: // LD A, H
+            REG_A = REG_H;
+            return MCYCLE_1;
+
+        case 0x7D: // LD A, L
+            REG_A = REG_L;
+            return MCYCLE_1;
+
+        case 0xAD: // XOR A, L
+            XOR_SET_FLAGS(REG_A, REG_L);
+            return MCYCLE_1;
+
+        case 0xAF: // XOR A
+            XOR_SET_FLAGS(REG_A, value);
+            return MCYCLE_1;
+
+        case 0xC1: // POP BC
+            REG_B = _fetch_item(REG_SP + 1);
+            REG_C = _fetch_item(REG_SP);
+            REG_SP += 2;
+            return MCYCLE_3;
 
         case 0xC3: // JP nn
             REG_PC = value;
             return MCYCLE_4;
+
+        case 0xC8: // RET Z
+            if (FLAG_Z_IS_SET()){
+                REG_PC = _fetch_item(REG_SP + 1) << 8 | _fetch_item(REG_SP);
+                REG_SP += 2;
+                return MCYCLE_4;
+            }
+            return MCYCLE_2;
+
+        case 0xC9: // RET
+            REG_PC = _fetch_item(REG_SP + 1) << 8 | _fetch_item(REG_SP);
+            REG_SP += 2;
+            return MCYCLE_4;
+
+        case 0xCD: // CALL nn 
+            _write_item(REG_SP - 1, (uint8_t)(REG_PC >> 8));
+            _write_item(REG_SP - 2, (uint8_t)(REG_PC & 0xFF));
+            REG_SP -= 2;
+            REG_PC = value;
+            return MCYCLE_6;
+
+        case 0xE0: // LDH (a8), A
+            _write_item((address_t)(0xFF00 + value), REG_A);
+            return MCYCLE_3;
         
+        case 0xE6: // AND d8
+            AND_SET_FLAGS(REG_A, value);
+            return MCYCLE_2;
+
+        case 0xEA: // LD (a16), A
+            _write_item((address_t)value, REG_A);
+            return MCYCLE_4;
+        
+        case 0xF0: // LDH A, (a8)
+            REG_A = _fetch_item((address_t)(0xFF00 + value));
+            return MCYCLE_3;
+
         case 0xF3: // DI
             IE = 0x00;
             return MCYCLE_1;
 
         case 0xF6: // OR d8
-            FLAG_N_RESET();
-            FLAG_H_RESET();
-            FLAG_C_RESET();
-            FLAG_Z_RESET();
+            OR_SET_FLAGS(REG_A, value);
+            return MCYCLE_2;
+        
+        case 0xF9: // LD SP, HL
+            REG_SP = (address_t)HL();
+            return MCYCLE_2;
 
-            REG_A |= (uint8_t)value;
+        case 0xFA: // LD A, (a16)
+            REG_A = _fetch_item((address_t)value);
+            return MCYCLE_4;
 
-            if (!REG_A){ FLAG_Z_SET();}
-
+        case 0xFE: // CP d8
+            CP_SET_FLAGS(REG_A, value);
             return MCYCLE_2;
 
         case 0xFF: // RST 38H
-            _write_item(REG_SP - 1, REG_PC >> 8);
-            _write_item(REG_SP - 2, REG_PC & 0xFF);
-
+            _write_item(REG_SP - 1, (uint8_t)(REG_PC >> 8));
+            _write_item(REG_SP - 2, (uint8_t)(REG_PC & 0xFF));
             REG_SP -= 2;
             REG_PC = 0x0038;
             return MCYCLE_4;
 
         default:
-            log_error("Invalid opcode: %02X", opcode);
+            log_error("Opcode: %02X[%d length], Value: %04X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], value, OPCODE_NAMES[(size_t)opcode]);
             exit(1);
     }
 }
@@ -385,7 +496,7 @@ opcycles_t _executeCB(opcode_t opcode){
             return MCYCLE_4;
 
         default:
-            log_error("Invalid CB opcode: %02X", opcode);
+            log_error("CB Opcode: CB:%02X[%d length] | %s", opcode, OPCODE_LENGTH[(size_t)(opcode)], OPCODE_NAMES[(size_t)(opcode)]);
             exit(1);
     }
 }

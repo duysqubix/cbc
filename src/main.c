@@ -12,7 +12,7 @@ static struct option long_options[] ={
 
 
 // default options
-bool STEP_MODE = false;
+bool DEBUG_STEP_MODE = false;
 
 
 static void parse_flags(int *argc, char ***argv){
@@ -24,14 +24,13 @@ static void parse_flags(int *argc, char ***argv){
 
                 if(strcmp(optarg, "trace") == 0){ log_set_level(LOG_TRACE); }
                 if(strcmp(optarg, "debug") == 0){ log_set_level(LOG_DEBUG); }
-                if(strcmp(optarg, "info") == 0){ log_set_level(LOG_INFO); }
-                if(strcmp(optarg, "warn") == 0){ log_set_level(LOG_WARN); }
+                if(strcmp(optarg, "info") == 0) { log_set_level(LOG_INFO); }
                 if(strcmp(optarg, "error") == 0){ log_set_level(LOG_ERROR); }
                 if(strcmp(optarg, "fatal") == 0){ log_set_level(LOG_FATAL); }
 
                 break;
             case 's':
-                STEP_MODE = true;
+                DEBUG_STEP_MODE = true;
                 break;
         }
     }
@@ -44,7 +43,7 @@ int main(int argc, char *argv[]) {
 
     parse_flags(&argc, &argv);
 
-    log_info("Step: %s", STEP_MODE ? "true" : "false");
+    log_info("Step: %s", DEBUG_STEP_MODE ? "true" : "false");
     
     gameboy_init(argv[0]);
 

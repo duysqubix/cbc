@@ -35,7 +35,6 @@ Main:
 	jp .test
 
 .test 
-	inc hl 
 	jp .test
 
 

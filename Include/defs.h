@@ -36,6 +36,8 @@
 #define MCYCLE_2 2
 #define MCYCLE_3 3
 #define MCYCLE_4 4
+#define MCYCLE_5 5
+#define MCYCLE_6 6
 
 #define AF() (uint16_t)(REG_A << 8 | REG_F)
 #define BC() (uint16_t)(REG_B << 8 | REG_C)
@@ -67,8 +69,53 @@
 #define BIT_RESET(value, bit) (value &= ~(1 << bit))
 #define BIT_IS_SET(value, bit) (value & (1 << bit))
 
+#define CP_SET_FLAGS(a, b)                          \
+{                                                   \
+    uint16_t al = (uint16_t)(a);                    \
+    uint16_t bl = (uint16_t)(b);                    \
+    uint16_t r = al - bl;                           \
+    FLAG_N_SET();                                   \
+    FLAG_H_RESET();                                 \
+    FLAG_C_RESET();                                 \
+    FLAG_Z_RESET();                                 \
+    if ((r & 0xff) == 0) { FLAG_Z_SET(); }            \
+    if (((al^bl^r) & 0x10) != 0) { FLAG_H_SET(); }    \
+    if ((r & 0x100) != 0) { FLAG_C_SET(); }           \
+}
+
+#define OR_SET_FLAGS(a, b)                          \
+{                                                   \
+    a |= (uint8_t)b;                                \
+    FLAG_Z_RESET();                                 \
+    if (!REG_A) { FLAG_Z_SET(); }                   \
+    FLAG_N_RESET();                                 \
+    FLAG_H_RESET();                                 \
+    FLAG_C_RESET();                                 \
+}
+
+#define XOR_SET_FLAGS(a, b)                         \
+{                                                   \
+    a ^= (uint8_t)b;                                \
+    FLAG_Z_RESET();                                 \
+    FLAG_N_RESET();                                 \
+    FLAG_H_RESET();                                 \
+    FLAG_C_RESET();                                 \
+    if (!a) { FLAG_Z_SET(); }                       \
+}
+
+#define AND_SET_FLAGS(a, b)                         \
+{                                                   \
+    a &= (uint8_t)b;                                \
+    FLAG_Z_RESET();                                 \
+    FLAG_N_RESET();                                 \
+    FLAG_H_SET();                                   \
+    FLAG_C_RESET();                                 \
+    if (!a) { FLAG_Z_SET(); }                       \
+}   
+
 typedef uint8_t opcode_t;
 typedef uint64_t opcycles_t;
+typedef uint16_t address_t;
 
 extern uint8_t DISPLAY[DISPLAY_WIDTH*DISPLAY_HEIGHT];
 extern uint8_t ROM[MAX_ROM_BANKS*ROM_BANK_SIZE];
@@ -80,8 +127,8 @@ extern uint8_t IO [0x7F];
 extern uint8_t HRAM[0x7E];
 extern uint8_t IE;
 
-extern uint16_t REG_SP;
-extern uint16_t REG_PC;
+extern address_t REG_SP;
+extern address_t REG_PC;
 extern uint8_t  REG_F;
 extern uint8_t  REG_A;
 extern uint8_t  REG_B;
@@ -96,9 +143,12 @@ extern uint8_t VRAM_CURRENT_BANK;
 extern uint8_t SRAM_CURRENT_BANK;
 extern uint8_t WRAM_CURRENT_BANK;
 
-extern uint8_t OPCODE_LENGTH[512];
+extern uint8_t const OPCODE_LENGTH[512];
 extern char * const OPCODE_NAMES[512];
-extern bool STEP_MODE;
+
+extern bool CPU_STUCK;
+extern bool CPU_HALTED;
+extern bool DEBUG_STEP_MODE;
 
 
 void gameboy_init(const char *rom_path);

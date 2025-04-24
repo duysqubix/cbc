@@ -26,7 +26,7 @@ uint8_t VRAM_CURRENT_BANK;
 uint8_t SRAM_CURRENT_BANK;
 uint8_t WRAM_CURRENT_BANK;
 
-uint8_t OPCODE_LENGTH[512] = {
+uint8_t const OPCODE_LENGTH[512] = {
 	1, 3, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 2, 1, // 0x00-0x0F
 	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x10-0x1F
 	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x20-0x2F
