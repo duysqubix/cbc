@@ -37,3 +37,4 @@ directories:
 
 clean:
 	rm -rf $(OBJDIR) $(TARGET) sandbox 
+	$(MAKE) -C default_rom clean

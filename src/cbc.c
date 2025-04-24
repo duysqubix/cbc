@@ -18,16 +18,20 @@ bool CPU_STUCK = false;
 void dump_registers(){
     if (get_log_level() > LOG_TRACE){ return; }
 
-    char buf[100];
+    char const * str = "\n"
+        "A: $%02X\t\tF: %04b [znhc]\n" 
+        "B: $%02X\t\tC: $%02X\t\t[BC:$%04X]: $%02X\n" 
+        "D: $%02X\t\tE: $%02X\t\t[DE:$%04X]: $%02X\n" 
+        "H: $%02X\t\tL: $%02X\t\t[HL:$%04X]: $%02X\n" 
+        "PC: $%04X\tSP: $%04X\n";
 
-    snprintf(buf, sizeof(buf), "\nA: %02X\t\tF: %04b [znhc]\n" 
-        "B: %02X\t\tC: %02X\n" 
-        "D: %02X\t\tE: %02X\n" 
-        "H: %02X\t\tL: %02X\t\t(HL): %02X\n" 
-        "PC: %04X\tSP: %04X\n", 
-        REG_A, REG_F>>4, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, _fetch_item(HL()), REG_PC, REG_SP);
+    log_trace(str, 
+        REG_A, REG_F>>4, 
+        REG_B, REG_C, BC(), _fetch_item(BC()),
+        REG_D, REG_E, DE(), _fetch_item(DE()), 
+        REG_H, REG_L, HL(), _fetch_item(HL()), 
+        REG_PC, REG_SP);
     
-    log_trace(buf);
 }
 
 size_t _load_rom(const char *rom_path){
@@ -102,8 +106,8 @@ int _tick(){
     //update cpu 
     cycles += _tick_cpu(cycles);
     
-    if (!CPU_HALTED && (old_pc == REG_PC) && (old_sp == REG_SP) && !CPU_STUCK){
-        CPU_STUCK = true;
+    // if (!CPU_HALTED && (old_pc == REG_PC) && (old_sp == REG_SP) && !CPU_STUCK){?
+    if (CPU_STUCK){
         log_warn("CPU Stuck at PC: %04X, SP: %04X", REG_PC, REG_SP);
         getchar();
     }
@@ -287,23 +291,182 @@ void _write_item(address_t address, uint8_t value){
 }
 
 inline opcycles_t _execute(opcode_t opcode, uint16_t value){
-
+    bool prev_carry = false;
+    
     switch (opcode) {
         case 0x00: // NOP       
             return MCYCLE_1;
 
         case 0x01: // LD BC, nn 
-            REG_B = value & 0xFF;
-            REG_C = value >> 8;
+            REG_B = value >> 8;
+            REG_C = value & 0xFF;
             return MCYCLE_3;
+
+        case 0x02: // LD (BC), A 
+            _write_item(BC(), REG_A);
+            return MCYCLE_2;
+
+        case 0x03: // INC BC 
+            INC_BC();
+            return MCYCLE_1;
+
+        case 0x04: // INC B
+            REG_B++;
+            return MCYCLE_1;
+
+        case 0x05: // DEC B
+            REG_B--;
+            return MCYCLE_1;
 
         case 0x06: // LD B,n
             REG_B = value;
             return MCYCLE_2;
 
+        case 0x07: // RLCA 
+            FLAG_Z_RESET();
+            FLAG_N_RESET();
+            FLAG_H_RESET();
+            FLAG_C_RESET();
+
+            if BIT_IS_SET(REG_A, 7){
+                FLAG_C_SET();
+                REG_A = (REG_A << 1) + 1;
+            } else {
+                REG_A <<= 1;
+            }
+
+            return MCYCLE_1;
+
+        case 0x08: // LD (nn), SP 
+            _write_item(value, (uint8_t)(REG_SP & 0xFF));
+            _write_item(value + 1, (uint8_t)(REG_SP >> 8));
+            return MCYCLE_5;
+
+        case 0x09: // ADD HL, BC
+            ADD_SET_FLAGS16(HL(), BC());
+
+            uint32_t r = HL() + BC();
+            REG_H = (uint8_t)((r >> 8) & 0xFF);
+            REG_L = (uint8_t)(r & 0xFF);
+
+            return MCYCLE_2;
+
+        case 0x0A: // LD A, (BC)
+            REG_A = _fetch_item(BC());
+            return MCYCLE_2;
+
+        case 0x0B: // DEC BC 
+            DEC_BC();
+            return MCYCLE_2;
+
+        case 0x0C: // INC C
+            REG_C++;
+            return MCYCLE_1;
+
+        case 0x0D: // DEC C
+            REG_C--;
+            return MCYCLE_1;
+
+        case 0x0E: // LD C, n
+            REG_C = value;
+            return MCYCLE_2;
+
+        case 0x0F: // RRCA
+            FLAG_Z_RESET();
+            FLAG_N_RESET();
+            FLAG_H_RESET();
+            FLAG_C_RESET();
+
+            if BIT_IS_SET(REG_A, 0){
+                FLAG_C_SET();
+                REG_A = (REG_A >> 1) + 0x80;
+            } else {
+                REG_A >>= 1;
+            }
+
+            return MCYCLE_1;
+
+        case 0x10: // STOP 
+            CPU_HALTED = true;
+            CPU_STUCK = true;
+            return MCYCLE_1;
+
+        case 0x11: // LD DE, nn
+            REG_D = (uint8_t)(value >> 8);
+            REG_E = (uint8_t)(value & 0xFF);
+            return MCYCLE_3;
+
+        case 0x12: // LD (DE), A
+            _write_item(DE(), REG_A);
+            return MCYCLE_2;
+        
+        case 0x13: // INC DE
+            INC_DE();
+            return MCYCLE_2;
+
+        case 0x14: // INC D
+            REG_D++;
+            return MCYCLE_1;
+
+        case 0x15: // DEC D
+            REG_D--;
+            return MCYCLE_1;
+
+        case 0x16: // LD D, n
+            REG_D = (uint8_t)value;
+            return MCYCLE_2;
+
+        case 0x17: // RLA
+            FLAG_Z_RESET();
+            FLAG_N_RESET();
+            FLAG_H_RESET();
+
+            prev_carry = FLAG_C_IS_SET();
+
+            if BIT_IS_SET(REG_A, 7){
+                FLAG_C_SET();
+            }else{
+                FLAG_C_RESET();
+            }
+
+            REG_A = (REG_A << 1) & 0xff;
+
+            if (prev_carry){
+                REG_A |= 0x01;
+            }
+
+            return MCYCLE_1;
+            
+            
+
         case 0x18: // JR r8
             REG_PC += (int8_t)(value);
             return MCYCLE_3;
+
+        case 0x1E: // LD E, d8 
+            REG_E = (uint8_t)value;
+            return MCYCLE_2;
+
+        case 0x1F: // RRA
+            FLAG_Z_RESET();
+            FLAG_N_RESET();
+            FLAG_H_RESET();
+
+            prev_carry = FLAG_C_IS_SET();
+
+            if BIT_IS_SET(REG_A, 0){
+                FLAG_C_SET();
+            }else{
+                FLAG_C_RESET();
+            }
+
+            REG_A = (REG_A >> 1) & 0xFF;
+
+            if (prev_carry){
+                REG_A |= 0x80;
+            }
+
+            return MCYCLE_1;
 
         case 0x20: // JR NZ, e
             if (!FLAG_Z_IS_SET()){
@@ -313,14 +476,12 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0x21: // LD HL, nn
-            REG_H = value >> 8;
-            REG_L = value & 0xFF;
+            REG_H = (uint8_t)(value >> 8);
+            REG_L = (uint8_t)(value & 0xFF);
             return MCYCLE_3;
 
         case 0x23: // INC HL
-            if (++REG_L == 0x00){
-                REG_H++;
-            }
+            INC_HL();
             return MCYCLE_1;
 
         case 0x28: // JR Z, e
@@ -343,7 +504,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0x31: // LD SP, nn
-            REG_SP = HL();
+            REG_SP = value;
             return MCYCLE_2;
 
         case 0x36: // LD (HL), u8
@@ -365,20 +526,56 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             REG_A = (uint8_t)value;
             return MCYCLE_2;
 
+        case 0x54: // LD D, H 
+            REG_D = REG_H;
+            return MCYCLE_1;
+
+        case 0x55: // LD D, L
+            REG_D = REG_L;
+            return MCYCLE_1;
+
         case 0x57: // LD D, A
             REG_D = REG_A;
+            return MCYCLE_1;
+
+        case 0x5D: // LD E, L
+            REG_E = REG_L;
+            return MCYCLE_1;
+
+        case 0x5F: // LD E, A
+            REG_E = REG_A;
+            return MCYCLE_1;
+
+        case 0x62: // LD H, D 
+            REG_H = REG_D;
             return MCYCLE_1;
 
         case 0x67: // LD H, A
             REG_H = REG_A;
             return MCYCLE_1;
 
+        case 0x6B: // LD L, E
+            REG_L = REG_E;
+            return MCYCLE_1;
+
         case 0x6F: // LD L, A
             REG_L = REG_A;
             return MCYCLE_1;
 
+        case 0x78: // LD A, B
+            REG_A = REG_B;
+            return MCYCLE_1;
+
+        case 0x79: // LD A, C
+            REG_A = REG_C;
+            return MCYCLE_1;
+
         case 0x7A: // LD A, D 
             REG_A = REG_D;
+            return MCYCLE_1;
+
+        case 0x7B: // LD A, E
+            REG_A = REG_E;
             return MCYCLE_1;
 
         case 0x7C: // LD A, H
@@ -391,6 +588,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
 
         case 0xAD: // XOR A, L
             XOR_SET_FLAGS(REG_A, REG_L);
+            REG_A ^= REG_L;
             return MCYCLE_1;
 
         case 0xAF: // XOR A
@@ -401,6 +599,13 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             REG_B = _fetch_item(REG_SP + 1);
             REG_C = _fetch_item(REG_SP);
             REG_SP += 2;
+            return MCYCLE_3;
+
+        case 0xC2: // JP NZ, nn
+            if (!FLAG_Z_IS_SET()){
+                REG_PC = value;
+                return MCYCLE_4;
+            }
             return MCYCLE_3;
 
         case 0xC3: // JP nn
@@ -430,9 +635,16 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
         case 0xE0: // LDH (a8), A
             _write_item((address_t)(0xFF00 + value), REG_A);
             return MCYCLE_3;
+
+        case 0xE1: // POP HL 
+            REG_L = _fetch_item(REG_SP);
+            REG_H = _fetch_item(REG_SP + 1);
+            REG_SP += 2;
+            return MCYCLE_3;
         
         case 0xE6: // AND d8
             AND_SET_FLAGS(REG_A, value);
+            REG_A &= (uint8_t)value;
             return MCYCLE_2;
 
         case 0xEA: // LD (a16), A
@@ -447,9 +659,21 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             IE = 0x00;
             return MCYCLE_1;
 
+        case 0xF5: // PUSH AF 
+            _write_item((address_t)(REG_SP-1), REG_A);
+            _write_item((address_t)(REG_SP-2), REG_F);
+            REG_SP -= 2;
+            return MCYCLE_4;
+
         case 0xF6: // OR d8
             OR_SET_FLAGS(REG_A, value);
+            REG_A |= (uint8_t)value;
             return MCYCLE_2;
+
+        case 0xF8: // LD HL, SP+i8
+            REG_H = (uint8_t)((REG_SP + (int8_t)value) >> 8);
+            REG_L = (uint8_t)((REG_SP + (int8_t)value) & 0xFF);
+            return MCYCLE_3;
         
         case 0xF9: // LD SP, HL
             REG_SP = (address_t)HL();

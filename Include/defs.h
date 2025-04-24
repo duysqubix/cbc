@@ -85,7 +85,6 @@
 
 #define OR_SET_FLAGS(a, b)                          \
 {                                                   \
-    a |= (uint8_t)b;                                \
     FLAG_Z_RESET();                                 \
     if (!REG_A) { FLAG_Z_SET(); }                   \
     FLAG_N_RESET();                                 \
@@ -95,7 +94,6 @@
 
 #define XOR_SET_FLAGS(a, b)                         \
 {                                                   \
-    a ^= (uint8_t)b;                                \
     FLAG_Z_RESET();                                 \
     FLAG_N_RESET();                                 \
     FLAG_H_RESET();                                 \
@@ -105,13 +103,72 @@
 
 #define AND_SET_FLAGS(a, b)                         \
 {                                                   \
-    a &= (uint8_t)b;                                \
     FLAG_Z_RESET();                                 \
     FLAG_N_RESET();                                 \
     FLAG_H_SET();                                   \
     FLAG_C_RESET();                                 \
     if (!a) { FLAG_Z_SET(); }                       \
 }   
+
+#define ADD_SET_FLAGS16(a, b)                       \
+{                                                   \
+    uint32_t r = a + b;                             \
+    FLAG_N_RESET();                                 \
+    FLAG_H_RESET();                                 \
+    FLAG_C_RESET();                                 \
+    if (r & 0x10000) { FLAG_C_SET();}               \
+    if (((uint32_t)(a)^(uint32_t)(b)^r)&0x1000)     \
+    {FLAG_H_SET();}                                 \
+}
+
+#define INC_BC()                                    \
+{                                                   \
+    REG_C++;                                        \
+    if (!REG_C) {                                   \
+        REG_B++;                                    \
+    }                                               \
+}
+
+#define DEC_BC()                                    \
+{                                                   \
+    REG_C--;                                        \
+    if (REG_C == 0xFF){                             \
+        REG_B--;                                    \
+    }                                               \
+}
+
+
+#define INC_DE()                                    \
+{                                                   \
+    if (!(++REG_E)) {                               \
+        REG_D++;                                    \
+    }                                               \
+}
+
+#define DEC_DE()                                    \
+{                                                   \
+    REG_E--;                                        \
+    if (REG_E == 0xFF){                             \
+        REG_D--;                                    \
+    }                                               \
+}
+
+
+#define INC_HL()                                    \
+{                                                   \
+    REG_L++;                                        \
+    if (!(++REG_L)) {                               \
+        REG_H++;                                    \
+    }                                               \
+}
+
+#define DEC_HL()                                    \
+{                                                   \
+    REG_L--;                                        \
+    if (REG_L == 0xFF){                             \
+        REG_H--;                                    \
+    }                                               \
+}
 
 typedef uint8_t opcode_t;
 typedef uint64_t opcycles_t;
