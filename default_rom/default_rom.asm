@@ -355,28 +355,88 @@ Main:
 	cp $1B 
 	jp nz, .fail 
 
-	
-	
+	; 0x1C // INC E 
+	ld de, $1C
+	ld e, $00
+	inc e 
+	ld a, e 
+	cp $01
+	jp nz, .fail 
+	ld e, $FF
+	inc e 
+	ld a, e 
+	cp $00
+	jp nz, .fail 
 
+	; 0x1D // DEC E
+	ld de, $1D
+	ld e, $01
+	dec e 
+	ld a, e 
+	cp $00
+	jp nz, .fail 
+	ld e, $00
+	dec e 
+	ld a, e 
+	cp $FF
+	jp nz, .fail 
+
+	; 0x1E // LD E, d8
+	ld de, $1E
+	ld e, $12
+	ld a, e 
+	cp $12
+	jp nz, .fail 
+	ld de, $1E
+	ld e, $12
+	ld a, e 
+	cp $12
+	jp nz, .fail
+	
 	; 0x1F // RRA 
-	; compare F flag, since it can't be loaded directly, we are doing some hacking
-	; push AF to stack, then pop it to HL, then compare F with H
-	; ld de, $1F 
-	; ld a, 127
-	; rra 
-	; push af 
-	; pop hl
-	; ld a, h 
-	; cp 63 
-	; jp nz, .fail 
-	; ld a, l 
-	; cp 16 
-	; jp nz, .fail
+	ld de, $1F
+	ld a, 127
+	rra 
+	ld b, a 
+	push af 
+	pop hl 
+	ld c, l
+	ld a, b 
+	cp a, 63 
+	jp nz, .fail 
+	ld a, c 
+	cp a, 16
+	jp nz, .fail
 
 
+	; 0x20 // JR NZ, e -- skip 
+
+	;0x21 // LD HL, nn 
+	ld de, $21 
+	ld hl, $1234
+	ld a, h 
+	cp $12 
+	jp nz, .fail 
+	ld a, l 
+	jp nz, .fail
+
+	; 0x27 // DAA
+	ld de, $27 
+	ld hl, $f080
+	push hl 
+	pop af 
+	daa 
+	push af ; preserve f flags 
+	cp a, $50
+	jp nz, .fail
+	pop hl 
+	ld a, l 
+	cp $10 
+	jp nz, .fail 
 
 
 	jp .finished
+
 
 .fail 
 	ld hl, $feeb

@@ -19,14 +19,14 @@ void dump_registers(){
     if (get_log_level() > LOG_TRACE){ return; }
 
     char const * str = "\n"
-        "A: $%02X\t\tF: %04b [znhc]\n" 
+        "A: $%02X\t\tF: %04b [znhc] [%02X]\n" 
         "B: $%02X\t\tC: $%02X\t\t[BC:$%04X]: $%02X\n" 
         "D: $%02X\t\tE: $%02X\t\t[DE:$%04X]: $%02X\n" 
         "H: $%02X\t\tL: $%02X\t\t[HL:$%04X]: $%02X\n" 
         "PC: $%04X\tSP: $%04X\n";
 
     log_trace(str, 
-        REG_A, REG_F>>4, 
+        REG_A, REG_F>>4, REG_F,
         REG_B, REG_C, BC(), _fetch_item(BC()),
         REG_D, REG_E, DE(), _fetch_item(DE()), 
         REG_H, REG_L, HL(), _fetch_item(HL()), 
@@ -503,15 +503,74 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             REG_L = U8(value & 0xFF);
             return MCYCLE_3;
 
+        case 0x22: // LD (HL+), A
+            WRITE_MEM(HL(), REG_A);
+            INC_HL();
+            return MCYCLE_2;
+
         case 0x23: // INC HL
             INC_HL();
             return MCYCLE_1;
+
+        case 0x24: // INC H
+            REG_H++;
+            return MCYCLE_1;
+
+        case 0x25: // DEC H
+            REG_H--;
+            return MCYCLE_1;
+
+        case 0x26: // LD H, n
+            REG_H = U8(value);
+            return MCYCLE_2;
+
+        case 0x27: // DAA
+            uint16_t daa_result = U16(REG_A);
+
+            FLAG_Z_RESET();
+
+            if (FLAG_N_IS_SET()){
+                if(FLAG_H_IS_SET()){
+                    daa_result = (daa_result - 0x06) & 0xff;
+                }
+
+                if(FLAG_C_IS_SET()){
+                    daa_result -= 0x60;
+                }
+            }else{
+                if (FLAG_H_IS_SET() || (daa_result &0x0f) > 0x09){
+                    daa_result += 0x06;
+                }
+
+                if (FLAG_C_IS_SET() || daa_result > 0x9F){
+                    daa_result += 0x60;
+                }
+            }
+
+            if((daa_result & 0xff) == 0 ){
+                FLAG_Z_SET();
+            }
+
+            if((daa_result & 0x100) == 0x100){
+                FLAG_C_SET();
+            }
+
+            FLAG_H_RESET();
+
+            REG_A = (uint8_t)daa_result;
+
+            return MCYCLE_2;
+            
 
         case 0x28: // JR Z, e
             if (FLAG_Z_IS_SET()){
                 REG_PC += U8(value);
                 return MCYCLE_3;
             }
+            return MCYCLE_2;
+
+        case 0x2E: // LD L, d8
+            REG_L = U8(value);
             return MCYCLE_2;
 
         case 0x37: // SCF
@@ -548,6 +607,14 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
         case 0x3E: // LD A, n
             REG_A = U8(value);
             return MCYCLE_2;
+
+        case 0x47: // LD B, A 
+            REG_B = REG_A;
+            return MCYCLE_1;
+
+        case 0x4D: // LD C, L
+            REG_C = REG_L;
+            return MCYCLE_1;
 
         case 0x54: // LD D, H 
             REG_D = REG_H;
@@ -664,7 +731,13 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             REG_H = READ_MEM(REG_SP + 1);
             REG_SP += 2;
             return MCYCLE_3;
-        
+
+        case 0xE5: // PUSH HL 
+            WRITE_MEM(REG_SP-1, REG_H);
+            WRITE_MEM(REG_SP-2, REG_L);
+            REG_SP -= 2;
+            return MCYCLE_4;
+
         case 0xE6: // AND d8
             AND_SET_FLAGS(REG_A, value);
             REG_A &= (uint8_t)value;
@@ -676,6 +749,12 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
         
         case 0xF0: // LDH A, (a8)
             REG_A = READ_MEM((address_t)(0xFF00 + value));
+            return MCYCLE_3;
+
+        case 0xF1: // POP AF 
+            REG_F = READ_MEM(REG_SP);
+            REG_A = READ_MEM(REG_SP + 1);
+            REG_SP += 2;
             return MCYCLE_3;
 
         case 0xF3: // DI
