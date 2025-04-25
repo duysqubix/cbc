@@ -31,6 +31,10 @@
 #define VRAM_SET(bank, offset, value) VRAM[(bank*RAM_BANK_SIZE) + offset] = value
 #define VRAM_GET(bank, offset) VRAM[(bank*RAM_BANK_SIZE) + offset]
 
+#define U32(value) (uint32_t)(value)
+#define U16(value) (uint16_t)(value)
+#define U8(value) (uint8_t)(value)
+#define i8(value) (int8_t)(value)
 
 #define MCYCLE_1 1 
 #define MCYCLE_2 2
@@ -39,10 +43,10 @@
 #define MCYCLE_5 5
 #define MCYCLE_6 6
 
-#define AF() (uint16_t)(REG_A << 8 | REG_F)
-#define BC() (uint16_t)(REG_B << 8 | REG_C)
-#define DE() (uint16_t)(REG_D << 8 | REG_E)
-#define HL() (uint16_t)(REG_H << 8 | REG_L)
+#define AF() (U16(REG_A) << 8 | REG_F)
+#define BC() (U16(REG_B) << 8 | REG_C)
+#define DE() (U16(REG_D) << 8 | REG_E)
+#define HL() (U16(REG_H) << 8 | REG_L)
 
 #define FLAG_Z_SET()    (REG_F |=  0b10000000)
 #define FLAG_Z_RESET()  (REG_F &= ~0b10000000)
@@ -62,25 +66,23 @@
 
 
 #define INCR_PC() (REG_PC++)
-#define INCR_SP() (REG_SP--)
-#define DECR_SP() (REG_SP++)
 
 #define BIT_SET(value, bit) (value |= (1 << bit))
 #define BIT_RESET(value, bit) (value &= ~(1 << bit))
 #define BIT_IS_SET(value, bit) (value & (1 << bit))
 
-#define CP_SET_FLAGS(a, b)                          \
-{                                                   \
-    uint16_t al = (uint16_t)(a);                    \
-    uint16_t bl = (uint16_t)(b);                    \
-    uint16_t r = al - bl;                           \
-    FLAG_N_SET();                                   \
-    FLAG_H_RESET();                                 \
-    FLAG_C_RESET();                                 \
-    FLAG_Z_RESET();                                 \
-    if ((r & 0xff) == 0) { FLAG_Z_SET(); }            \
-    if (((al^bl^r) & 0x10) != 0) { FLAG_H_SET(); }    \
-    if ((r & 0x100) != 0) { FLAG_C_SET(); }           \
+#define WRITE_MEM(address, value) _write_item((address_t)(address), U8(value))
+#define READ_MEM(address) _fetch_item((address_t)(address))
+
+#define CP_SET_FLAGS(a, b)                                                  \
+{                                                                           \
+    FLAG_N_SET();                                                           \
+    FLAG_H_RESET();                                                         \
+    FLAG_C_RESET();                                                         \
+    FLAG_Z_RESET();                                                         \
+    if (((U16(a)-U16(b)) & (0xff)) == 0) { FLAG_Z_SET(); }                  \
+    if (((U16(a)^U16(b)^(U16(a)-U16(b))) & (0x10)) != 0) { FLAG_H_SET(); }  \
+    if (((U16(a)-U16(b)) & (0x100)) != 0) { FLAG_C_SET(); }                 \
 }
 
 #define OR_SET_FLAGS(a, b)                          \
@@ -110,15 +112,15 @@
     if (!a) { FLAG_Z_SET(); }                       \
 }   
 
-#define ADD_SET_FLAGS16(a, b)                       \
-{                                                   \
-    uint32_t r = a + b;                             \
-    FLAG_N_RESET();                                 \
-    FLAG_H_RESET();                                 \
-    FLAG_C_RESET();                                 \
-    if (r & 0x10000) { FLAG_C_SET();}               \
-    if (((uint32_t)(a)^(uint32_t)(b)^r)&0x1000)     \
-    {FLAG_H_SET();}                                 \
+
+#define ADD_SET_FLAGS16(a, b)                                       \
+{                                                                   \
+    FLAG_N_RESET();                                                 \
+    FLAG_H_RESET();                                                 \
+    FLAG_C_RESET();                                                 \
+    if ((U32(a) + U32(b)) & 0x10000) { FLAG_C_SET();}               \
+    if (((U32(a)^U32(b)^(U32(a)+U32(b)))&0x1000) != 0)              \
+    {FLAG_H_SET();}                                                 \
 }
 
 #define INC_BC()                                    \

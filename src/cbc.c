@@ -100,8 +100,8 @@ int gameboy_loop(){
 
 int _tick(){
     opcycles_t cycles = 0; 
-    address_t old_pc = REG_PC;
-    address_t old_sp = REG_SP;
+    // address_t old_pc = REG_PC;
+    // address_t old_sp = REG_SP;
     
     //update cpu 
     cycles += _tick_cpu(cycles);
@@ -298,12 +298,12 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0x01: // LD BC, nn 
-            REG_B = value >> 8;
-            REG_C = value & 0xFF;
+            REG_B = U8(value >> 8);
+            REG_C = U8(value & 0xFF);
             return MCYCLE_3;
 
         case 0x02: // LD (BC), A 
-            _write_item(BC(), REG_A);
+            WRITE_MEM(BC(), REG_A);
             return MCYCLE_2;
 
         case 0x03: // INC BC 
@@ -338,21 +338,20 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0x08: // LD (nn), SP 
-            _write_item(value, (uint8_t)(REG_SP & 0xFF));
-            _write_item(value + 1, (uint8_t)(REG_SP >> 8));
+            WRITE_MEM(value, U8(REG_SP & 0xFF));
+            WRITE_MEM(value + 1, U8(REG_SP >> 8));
             return MCYCLE_5;
 
         case 0x09: // ADD HL, BC
             ADD_SET_FLAGS16(HL(), BC());
 
-            uint32_t r = HL() + BC();
-            REG_H = (uint8_t)((r >> 8) & 0xFF);
-            REG_L = (uint8_t)(r & 0xFF);
+            REG_H = U8((U16(HL()) + U16(BC())) >> 8);
+            REG_L = U8((U16(HL()) + U16(BC())) & 0xFF);
 
             return MCYCLE_2;
 
         case 0x0A: // LD A, (BC)
-            REG_A = _fetch_item(BC());
+            REG_A = READ_MEM(BC());
             return MCYCLE_2;
 
         case 0x0B: // DEC BC 
@@ -392,12 +391,12 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0x11: // LD DE, nn
-            REG_D = (uint8_t)(value >> 8);
-            REG_E = (uint8_t)(value & 0xFF);
+            REG_D = U8(value >> 8);
+            REG_E = U8(value & 0xFF);
             return MCYCLE_3;
 
         case 0x12: // LD (DE), A
-            _write_item(DE(), REG_A);
+            WRITE_MEM(DE(), REG_A);
             return MCYCLE_2;
         
         case 0x13: // INC DE
@@ -413,7 +412,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0x16: // LD D, n
-            REG_D = (uint8_t)value;
+            REG_D = U8(value);
             return MCYCLE_2;
 
         case 0x17: // RLA
@@ -440,11 +439,35 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             
 
         case 0x18: // JR r8
-            REG_PC += (int8_t)(value);
+            REG_PC += U8(value);
             return MCYCLE_3;
 
+        case 0x19: // ADD HL, DE 
+            ADD_SET_FLAGS16(HL(), DE());
+
+            REG_H = U8((U16(HL()) + U16(DE())) >> 8);
+            REG_L = U8((U16(HL()) + U16(DE())) & 0xFF);
+
+            return MCYCLE_2;
+
+        case 0x1A: // LD A, (DE)
+            REG_A = READ_MEM(DE());
+            return MCYCLE_2;
+
+        case 0x1B: // DEC DE
+            DEC_DE();
+            return MCYCLE_2;
+
+        case 0x1C: // INC E
+            REG_E++;
+            return MCYCLE_1;
+
+        case 0x1D: // DEC E
+            REG_E--;
+            return MCYCLE_1;
+
         case 0x1E: // LD E, d8 
-            REG_E = (uint8_t)value;
+            REG_E = U8(value);
             return MCYCLE_2;
 
         case 0x1F: // RRA
@@ -470,14 +493,14 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
 
         case 0x20: // JR NZ, e
             if (!FLAG_Z_IS_SET()){
-                REG_PC += (int8_t)(value);
+                REG_PC += U8(value);
                 return MCYCLE_3;
             }
             return MCYCLE_2;
 
         case 0x21: // LD HL, nn
-            REG_H = (uint8_t)(value >> 8);
-            REG_L = (uint8_t)(value & 0xFF);
+            REG_H = U8(value >> 8);
+            REG_L = U8(value & 0xFF);
             return MCYCLE_3;
 
         case 0x23: // INC HL
@@ -486,7 +509,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
 
         case 0x28: // JR Z, e
             if (FLAG_Z_IS_SET()){
-                REG_PC += (int8_t)(value);
+                REG_PC += U8(value);
                 return MCYCLE_3;
             }
             return MCYCLE_2;
@@ -497,23 +520,23 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
 
         case 0x30: // JR NC,e
             if (!FLAG_C_IS_SET()){  
-                REG_PC += (int8_t)(value);
+                REG_PC += U8(value);
                 return MCYCLE_3;
             }
 
             return MCYCLE_2;
 
         case 0x31: // LD SP, nn
-            REG_SP = value;
+            REG_SP = U16(value);
             return MCYCLE_2;
 
         case 0x36: // LD (HL), u8
-            _write_item((address_t)HL(), value);
+            WRITE_MEM(HL(), U8(value));
             return MCYCLE_3;
 
         case 0x38: // JR C,e
             if (FLAG_C_IS_SET()){
-                REG_PC += (int8_t)(value);
+                REG_PC += U8(value);
                 return MCYCLE_3;
             }
             return MCYCLE_2;
@@ -523,7 +546,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0x3E: // LD A, n
-            REG_A = (uint8_t)value;
+            REG_A = U8(value);
             return MCYCLE_2;
 
         case 0x54: // LD D, H 
@@ -596,8 +619,8 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0xC1: // POP BC
-            REG_B = _fetch_item(REG_SP + 1);
-            REG_C = _fetch_item(REG_SP);
+            REG_B = READ_MEM(REG_SP + 1);
+            REG_C = READ_MEM(REG_SP);
             REG_SP += 2;
             return MCYCLE_3;
 
@@ -614,31 +637,31 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
 
         case 0xC8: // RET Z
             if (FLAG_Z_IS_SET()){
-                REG_PC = _fetch_item(REG_SP + 1) << 8 | _fetch_item(REG_SP);
+                REG_PC = READ_MEM(REG_SP + 1) << 8 | READ_MEM(REG_SP);
                 REG_SP += 2;
                 return MCYCLE_4;
             }
             return MCYCLE_2;
 
         case 0xC9: // RET
-            REG_PC = _fetch_item(REG_SP + 1) << 8 | _fetch_item(REG_SP);
+            REG_PC = READ_MEM(REG_SP + 1) << 8 | READ_MEM(REG_SP);
             REG_SP += 2;
             return MCYCLE_4;
 
         case 0xCD: // CALL nn 
-            _write_item(REG_SP - 1, (uint8_t)(REG_PC >> 8));
-            _write_item(REG_SP - 2, (uint8_t)(REG_PC & 0xFF));
+            WRITE_MEM(REG_SP - 1, REG_PC >> 8);
+            WRITE_MEM(REG_SP - 2, REG_PC & 0xFF);
             REG_SP -= 2;
             REG_PC = value;
             return MCYCLE_6;
 
         case 0xE0: // LDH (a8), A
-            _write_item((address_t)(0xFF00 + value), REG_A);
+            WRITE_MEM(0xFF00 + value, REG_A);
             return MCYCLE_3;
 
         case 0xE1: // POP HL 
-            REG_L = _fetch_item(REG_SP);
-            REG_H = _fetch_item(REG_SP + 1);
+            REG_L = READ_MEM(REG_SP);
+            REG_H = READ_MEM(REG_SP + 1);
             REG_SP += 2;
             return MCYCLE_3;
         
@@ -648,11 +671,11 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0xEA: // LD (a16), A
-            _write_item((address_t)value, REG_A);
+            WRITE_MEM(value, REG_A);
             return MCYCLE_4;
         
         case 0xF0: // LDH A, (a8)
-            REG_A = _fetch_item((address_t)(0xFF00 + value));
+            REG_A = READ_MEM((address_t)(0xFF00 + value));
             return MCYCLE_3;
 
         case 0xF3: // DI
@@ -660,8 +683,8 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_1;
 
         case 0xF5: // PUSH AF 
-            _write_item((address_t)(REG_SP-1), REG_A);
-            _write_item((address_t)(REG_SP-2), REG_F);
+            WRITE_MEM(REG_SP-1, REG_A);
+            WRITE_MEM(REG_SP-2, REG_F);
             REG_SP -= 2;
             return MCYCLE_4;
 
@@ -671,8 +694,8 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0xF8: // LD HL, SP+i8
-            REG_H = (uint8_t)((REG_SP + (int8_t)value) >> 8);
-            REG_L = (uint8_t)((REG_SP + (int8_t)value) & 0xFF);
+            REG_H = U8((REG_SP + i8(value)) >> 8);
+            REG_L = U8((REG_SP + i8(value)) & 0xFF);
             return MCYCLE_3;
         
         case 0xF9: // LD SP, HL
@@ -680,7 +703,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0xFA: // LD A, (a16)
-            REG_A = _fetch_item((address_t)value);
+            REG_A = READ_MEM((address_t)value);
             return MCYCLE_4;
 
         case 0xFE: // CP d8
@@ -688,8 +711,8 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             return MCYCLE_2;
 
         case 0xFF: // RST 38H
-            _write_item(REG_SP - 1, (uint8_t)(REG_PC >> 8));
-            _write_item(REG_SP - 2, (uint8_t)(REG_PC & 0xFF));
+            WRITE_MEM(REG_SP - 1, REG_PC >> 8);
+            WRITE_MEM(REG_SP - 2, REG_PC & 0xFF);
             REG_SP -= 2;
             REG_PC = 0x0038;
             return MCYCLE_4;

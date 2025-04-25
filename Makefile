@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -I./Include -Wall -Wextra -g
+CFLAGS = -I./Include -Wall -Wextra -g --std=c11 -O3
 ifeq ($(DEBUG),1)
     CFLAGS += -O0
 else
@@ -23,7 +23,7 @@ sandbox: $(SANDBOX_SRC)
 	./sandbox
 
 rom:
-	$(MAKE) -C default_rom
+	make -C default_rom
 
 
 $(TARGET): $(OBJS)
@@ -37,4 +37,4 @@ directories:
 
 clean:
 	rm -rf $(OBJDIR) $(TARGET) sandbox 
-	$(MAKE) -C default_rom clean
+	make -C default_rom clean

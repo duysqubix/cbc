@@ -306,25 +306,72 @@ Main:
 
 	; 0x18 // JR r8 -- no
 
-	
-	
+	; 0x19 // ADD HL, DE 
+	ld de, $0019
+	ld hl, $2000
+	add hl, de 
+	ld a, h 
+	cp $20
+	jp nz, .fail 
+	ld a, l 
+	cp $19
+	jp nz, .fail 
+	ld hl, $FFFF
+	add hl, de 
+	ld a, h 
+	cp $00
+	jp nz, .fail
+	ld a, l
+	cp $18
+	jp nz, .fail
+
+
+	; 0x1A // LD A, (DE)
+
+	ld de, $1A
+	ld hl, _SRAM 
+	ld [hl], $12
+	ld de, _SRAM
+	ld a, [de]
+	cp $12
+	jp nz, .fail 
+	ld de, $1A
+
+	; 0x1B // DEC DE
+	ld de, $0100
+	dec de 
+	ld a, d
+	cp $00 
+	jp nz, .fail 
+	ld a, e 
+	cp $ff
+	jp nz, .fail
+	ld de, $1C 
+	dec de 
+	ld a, d 
+	cp $00
+	jp nz, .fail 
+	ld a, e 
+	cp $1B 
+	jp nz, .fail 
+
 	
 	
 
 	; 0x1F // RRA 
 	; compare F flag, since it can't be loaded directly, we are doing some hacking
 	; push AF to stack, then pop it to HL, then compare F with H
-	ld de, $1F 
-	ld a, 127
-	rra 
-	push af 
-	pop hl
-	ld a, h 
-	cp 63 
-	jp nz, .fail 
-	ld a, l 
-	cp 16 
-	jp nz, .fail
+	; ld de, $1F 
+	; ld a, 127
+	; rra 
+	; push af 
+	; pop hl
+	; ld a, h 
+	; cp 63 
+	; jp nz, .fail 
+	; ld a, l 
+	; cp 16 
+	; jp nz, .fail
 
 
 
