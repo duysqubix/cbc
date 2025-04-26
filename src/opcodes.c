@@ -173,7 +173,7 @@ static opcycles_t rla(){              // 0x17
 
 static opcycles_t jr_i8(){             // 0x18
     REG_PC += i8(READ_NEXT_BYTE())-2;
-    return MCYCLE_2;
+    return MCYCLE_3;
 }
 
 static opcycles_t add_hl_de(){         // 0x19
@@ -233,12 +233,32 @@ static opcycles_t rra(){              // 0x1F
     
 }
 
+static opcycles_t jr_nz_i8(){         // 0x20
+    if (!FLAG_Z_IS_SET()){
+        REG_PC += i8(READ_NEXT_BYTE())-2;
+        return MCYCLE_3;
+    }
+    return MCYCLE_2;
+}
+
+
 static opcycles_t ld_hl_nn(){           // 0x21
     uint16_t value = READ_NEXT_WORD();
     REG_H = U8(value >> 8);
     REG_L = U8(value & 0xFF);
     return MCYCLE_3;
 }
+
+
+static opcycles_t ld_hlp_a(){            // 0x22 
+    WRITE_MEM(HL(), REG_A);
+    HL_INC();
+    return MCYCLE_2;
+}
+
+
+
+
 
 static opcycles_t daa(){              // 0x27
     uint16_t daa_result = U16(REG_A);
@@ -463,9 +483,9 @@ opcode_def_t *opcodes[512] = {
     [0x1D] = &dec_e,
     [0x1E] = &ld_e_n,
     [0x1F] = &rra,
-    [0x20] = NULL,
+    [0x20] = &jr_nz_i8,
     [0x21] = &ld_hl_nn,
-    [0x22] = NULL,
+    [0x22] = &ld_hlp_a,
     [0x23] = NULL,
     [0x24] = NULL,
     [0x25] = NULL,
