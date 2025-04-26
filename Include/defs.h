@@ -71,8 +71,8 @@
 #define BIT_RESET(value, bit) (value &= ~(1 << bit))
 #define BIT_IS_SET(value, bit) (value & (1 << bit))
 
-#define WRITE_MEM(address, value) _write_item((address_t)(address), U8(value))
-#define READ_MEM(address) _fetch_item((address_t)(address))
+#define WRITE_MEM(address, value) write_item((address_t)(address), U8(value))
+#define READ_MEM(address) fetch_item((address_t)(address))
 
 #define READ_NEXT_BYTE() U8(READ_MEM(REG_PC + 1))
 #define READ_NEXT_WORD() U16(READ_MEM(REG_PC + 2) << 8 | READ_MEM(REG_PC + 1))
@@ -214,6 +214,9 @@ extern opcode_def_t *opcodes[512];
 extern bool CPU_STUCK;
 extern bool CPU_HALTED;
 extern bool DEBUG_STEP_MODE;
+
+extern uint8_t     fetch_item(address_t address);
+extern void        write_item(address_t address, uint8_t value);
 
 
 void gameboy_init(const char *rom_path);

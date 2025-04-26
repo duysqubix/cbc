@@ -7,10 +7,8 @@
 
 int         _tick();
 opcycles_t  _tick_cpu();
-uint8_t     _fetch_item(address_t address);
-void        _write_item(address_t address, uint8_t value);
 opcycles_t  _execute(opcode_t opcode, uint16_t value);
-opcycles_t _executeCB(opcode_t opcode);
+opcycles_t  _executeCB(opcode_t opcode);
 
 bool CPU_HALTED = false;
 bool CPU_STUCK = false;
@@ -27,9 +25,9 @@ void dump_registers(){
 
     log_trace(str, 
         REG_A, REG_F>>4, REG_F,
-        REG_B, REG_C, BC(), _fetch_item(BC()),
-        REG_D, REG_E, DE(), _fetch_item(DE()), 
-        REG_H, REG_L, HL(), _fetch_item(HL()), 
+        REG_B, REG_C, BC(), READ_MEM(BC()),
+        REG_D, REG_E, DE(), READ_MEM(DE()), 
+        REG_H, REG_L, HL(), READ_MEM(HL()), 
         REG_PC, REG_SP);
     
 }
@@ -172,7 +170,7 @@ opcycles_t _tick_cpu(){
     // if(opcode == 0xCB){
     //     cb = true;
     //     INCR_PC();
-    //     opcode = _fetch_item(REG_PC);
+    //     opcode = fetch_item(REG_PC);
     //     opcycles += 1;  // CB opcode takes 1 cycle by default.
     //     offset = 0x100;
     // }
@@ -185,14 +183,14 @@ opcycles_t _tick_cpu(){
 
     //     // 8bit immediate
     //     case 2:
-    //         value = _fetch_item(REG_PC+1);
+    //         value = fetch_item(REG_PC+1);
     //         INCR_PC();
     //         INCR_PC();
     //         break;
 
     //     // 16bit immediate
     //     case 3:
-    //         value = (_fetch_item(REG_PC+2) << 8) | _fetch_item(REG_PC+1);
+    //         value = (fetch_item(REG_PC+2) << 8) | fetch_item(REG_PC+1);
     //         INCR_PC();
     //         INCR_PC();
     //         INCR_PC();
@@ -215,7 +213,7 @@ opcycles_t _tick_cpu(){
     return opcycles;
 }
 
-uint8_t _fetch_item(address_t address){
+uint8_t fetch_item(address_t address){
     // log_trace("Fetching item at address: %04X", address);
     switch (address) {
         case 0x0000 ... 0x3FFF:
@@ -263,7 +261,7 @@ uint8_t _fetch_item(address_t address){
     }
 }
 
-void _write_item(address_t address, uint8_t value){
+void write_item(address_t address, uint8_t value){
     // write serial to stdout 
     if (address == 0xFF02 && value == 0x81){
         printf("%c", IO[0x01]);
@@ -330,9 +328,9 @@ void _write_item(address_t address, uint8_t value){
 inline opcycles_t _execute(opcode_t opcode, uint16_t value){
     bool prev_carry = false;
 
-    if(opcode >= 0x00 && opcode <= 0x0F){
-        return opcodes[opcode](value);
-    }
+    // if(opcode >= 0x00 && opcode <= 0x0F){
+    //     return opcodes[opcode](value);
+    // }
     
     switch (opcode) {
         case 0x00: // NOP       
@@ -480,7 +478,7 @@ inline opcycles_t _execute(opcode_t opcode, uint16_t value){
             
 
         case 0x18: // JR r8
-            REG_PC += U8(value);
+            REG_PC += i8(value);
             return MCYCLE_3;
 
         case 0x19: // ADD HL, DE 
@@ -851,15 +849,15 @@ opcycles_t _executeCB(opcode_t opcode){
             return MCYCLE_1;
 
         case 0xEE: // SET 5, (HL)
-            buf8 = _fetch_item(HL());
+            buf8 = fetch_item(HL());
             BIT_SET(buf8, 5);
-            _write_item(HL(), buf8);
+            write_item(HL(), buf8);
             return MCYCLE_4;
 
         case 0xF6: // SET 6, (HL)
-            buf8 = _fetch_item(HL());
+            buf8 = fetch_item(HL());
             BIT_SET(buf8, 6);
-            _write_item(HL(), buf8);
+            write_item(HL(), buf8);
             return MCYCLE_4;
 
         default:
