@@ -252,12 +252,9 @@ static opcycles_t ld_hl_nn(){           // 0x21
 
 static opcycles_t ld_hlp_a(){            // 0x22 
     WRITE_MEM(HL(), REG_A);
-    HL_INC();
+    INC_HL();
     return MCYCLE_2;
 }
-
-
-
 
 
 static opcycles_t daa(){              // 0x27
