@@ -74,6 +74,9 @@
 #define WRITE_MEM(address, value) _write_item((address_t)(address), U8(value))
 #define READ_MEM(address) _fetch_item((address_t)(address))
 
+#define READ_NEXT_BYTE() U8(READ_MEM(REG_PC + 1))
+#define READ_NEXT_WORD() U16(READ_MEM(REG_PC + 2) << 8 | READ_MEM(REG_PC + 1))
+
 #define CP_SET_FLAGS(a, b)                                                  \
 {                                                                           \
     FLAG_N_SET();                                                           \
@@ -175,6 +178,8 @@
 typedef uint8_t opcode_t;
 typedef uint64_t opcycles_t;
 typedef uint16_t address_t;
+typedef opcycles_t opcode_def_t();
+
 
 extern uint8_t DISPLAY[DISPLAY_WIDTH*DISPLAY_HEIGHT];
 extern uint8_t ROM[MAX_ROM_BANKS*ROM_BANK_SIZE];
@@ -204,6 +209,7 @@ extern uint8_t WRAM_CURRENT_BANK;
 
 extern uint8_t const OPCODE_LENGTH[512];
 extern char * const OPCODE_NAMES[512];
+extern opcode_def_t *opcodes[512];
 
 extern bool CPU_STUCK;
 extern bool CPU_HALTED;

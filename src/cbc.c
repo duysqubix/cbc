@@ -123,57 +123,94 @@ int _tick(){
 }
 
 opcycles_t _tick_cpu(){
-    opcycles_t  opcycles = 0;
-    opcode_t    opcode = (opcode_t)_fetch_item(REG_PC);
-    uint16_t    value = 0x0000;
-    size_t      offset = 0x00;
-    bool        cb = false;
+    opcode_t opcode = READ_MEM(REG_PC);
+    uint16_t offset = 0x00;
+    opcycles_t opcycles = 0;
+    opcode_def_t *opcycle_def = NULL;
+
+    if(opcode == 0xCB){
+        offset = 0x100;
+        REG_PC++;
+        opcode = READ_MEM(REG_PC);
+        opcycles++;
+    }
+    int8_t oplen = OPCODE_LENGTH[(size_t)opcode+offset];
+
+    if (get_log_level() >= LOG_TRACE){
+        switch(oplen){
+            case 1:
+                log_trace("Opcode: %02X[%d length], Value: N/a | %s", opcode, OPCODE_LENGTH[(size_t)opcode], OPCODE_NAMES[(size_t)opcode]);
+                break;
+
+            case 2:
+                log_trace("Opcode: %02X[%d length], Value: %02X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], READ_NEXT_BYTE(), OPCODE_NAMES[(size_t)opcode]);
+                break;
+                
+            case 3:
+                log_trace("Opcode: %02X[%d length], Value: %04X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], READ_NEXT_WORD(), OPCODE_NAMES[(size_t)opcode]);
+                break;
+        }
+    }
+
+
+    opcycle_def = opcodes[opcode+offset];
+
+    // TODO: remove me once all opcodes are implemented
+    if(!opcycle_def){
+        log_error("Invalid opcode: %02X", opcode);
+        exit(1);
+    }
+
+
+    opcycles += opcycle_def();
+    REG_PC   += OPCODE_LENGTH[opcode+offset];
 
     dump_registers();
 
 
-    if(opcode == 0xCB){
-        cb = true;
-        INCR_PC();
-        opcode = _fetch_item(REG_PC);
-        opcycles += 1;  // CB opcode takes 1 cycle by default.
-        offset = 0x100;
-    }
 
-    size_t opcode_len_addr = (size_t)(opcode) + offset;
-    switch (OPCODE_LENGTH[opcode_len_addr]) {
-        case 1:
-            INCR_PC();
-            break;
+    // if(opcode == 0xCB){
+    //     cb = true;
+    //     INCR_PC();
+    //     opcode = _fetch_item(REG_PC);
+    //     opcycles += 1;  // CB opcode takes 1 cycle by default.
+    //     offset = 0x100;
+    // }
 
-        // 8bit immediate
-        case 2:
-            value = _fetch_item(REG_PC+1);
-            INCR_PC();
-            INCR_PC();
-            break;
+    // size_t opcode_len_addr = (size_t)(opcode) + offset;
+    // switch (OPCODE_LENGTH[opcode_len_addr]) {
+    //     case 1:
+    //         INCR_PC();
+    //         break;
 
-        // 16bit immediate
-        case 3:
-            value = (_fetch_item(REG_PC+2) << 8) | _fetch_item(REG_PC+1);
-            INCR_PC();
-            INCR_PC();
-            INCR_PC();
-            break;
-        default:
-            log_error("Invalid opcode length: %d for opcode: %02X. CB Mode: %s", OPCODE_LENGTH[(size_t)(opcode+offset)], opcode, cb ? "true" : "false");
-            exit(1);
-    }
+    //     // 8bit immediate
+    //     case 2:
+    //         value = _fetch_item(REG_PC+1);
+    //         INCR_PC();
+    //         INCR_PC();
+    //         break;
+
+    //     // 16bit immediate
+    //     case 3:
+    //         value = (_fetch_item(REG_PC+2) << 8) | _fetch_item(REG_PC+1);
+    //         INCR_PC();
+    //         INCR_PC();
+    //         INCR_PC();
+    //         break;
+    //     default:
+    //         log_error("Invalid opcode length: %d for opcode: %02X. CB Mode: %s", OPCODE_LENGTH[(size_t)(opcode+offset)], opcode, cb ? "true" : "false");
+    //         exit(1);
+    // }
 
 
-    if (cb){
-        log_trace("CB Opcode: CB:%02X[%d length] | %s", opcode, OPCODE_LENGTH[(size_t)(opcode+offset)], OPCODE_NAMES[(size_t)(opcode)+offset]);
-        opcycles += _executeCB(opcode);
-    } else {
-        log_trace("Opcode: %02X[%d length], Value: %04X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], value, OPCODE_NAMES[(size_t)opcode]);
+    // if (cb){
+    //     log_trace("CB Opcode: CB:%02X[%d length] | %s", opcode, OPCODE_LENGTH[(size_t)(opcode+offset)], OPCODE_NAMES[(size_t)(opcode)+offset]);
+    //     opcycles += _executeCB(opcode);
+    // } else {
+    //     log_trace("Opcode: %02X[%d length], Value: %04X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], value, OPCODE_NAMES[(size_t)opcode]);
 
-        opcycles += _execute(opcode, value);
-    }
+    //     opcycles += _execute(opcode, value);
+    // }
 
     return opcycles;
 }
@@ -292,6 +329,10 @@ void _write_item(address_t address, uint8_t value){
 
 inline opcycles_t _execute(opcode_t opcode, uint16_t value){
     bool prev_carry = false;
+
+    if(opcode >= 0x00 && opcode <= 0x0F){
+        return opcodes[opcode](value);
+    }
     
     switch (opcode) {
         case 0x00: // NOP       
