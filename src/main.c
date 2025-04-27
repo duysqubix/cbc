@@ -6,7 +6,7 @@
 
 static struct option long_options[] ={
     {"debug", required_argument, 0, 'd'},
-    {"step", no_argument, 0, 's'},
+    {"step", required_argument, 0, 's'},
     {"break-instr", required_argument, 0, 'b'},
     {0, 0, 0, 0}
 };
@@ -14,8 +14,8 @@ static struct option long_options[] ={
 
 // default options
 bool DEBUG_STEP_MODE = false;
-uint16_t BREAK_INSTR = 0xFFFF;
-
+uint16_t BREAK_INSTR = 513;
+uint32_t BREAK_ADDRESS = 0x10000;
 
 static void parse_flags(int *argc, char ***argv){
     int c;
@@ -32,7 +32,7 @@ static void parse_flags(int *argc, char ***argv){
 
                 break;
             case 's':
-                DEBUG_STEP_MODE = true;
+                BREAK_ADDRESS = strtol(optarg, NULL, 16);
                 break;
 
             case 'b':

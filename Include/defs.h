@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+
+#define TRACEBACK_SIZE  10
 #define ROM_BANK_SIZE   1024*16 // 16KB
 #define RAM_BANK_SIZE   1024*8 // 8KB
 #define DISPLAY_WIDTH   160
@@ -214,23 +216,14 @@ extern bool CPU_STUCK;
 extern bool CPU_HALTED;
 extern bool DEBUG_STEP_MODE;
 extern uint16_t BREAK_INSTR;
-
+extern uint32_t BREAK_ADDRESS;
 extern uint8_t     fetch_item(address_t address);
 extern void        write_item(address_t address, uint8_t value);
-
+extern void        dump_traceback();
+extern void        dump_registers();
 
 void gameboy_init(const char *rom_path);
-void gameboy_free();
 int  gameboy_loop();
 void randomize(uint8_t *data, size_t size);
-opcycles_t execute_opcode(opcode_t opcode, uint16_t value);
-void dump_memory();
-
-// utilities 
-void fdump_memory(const char *filename, uint8_t *data, size_t size);
-void dump_registers();
-
-
-
 
 #endif

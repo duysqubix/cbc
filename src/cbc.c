@@ -5,13 +5,70 @@
 
 
 
-int         _tick();
-opcycles_t  _tick_cpu();
+int         tick();
+opcycles_t  tick_cpu();
 opcycles_t  _execute(opcode_t opcode, uint16_t value);
 opcycles_t  _executeCB(opcode_t opcode);
 
 bool CPU_HALTED = false;
 bool CPU_STUCK = false;
+
+typedef struct State {
+    uint8_t A;
+    uint8_t B;
+    uint8_t C;
+    uint8_t D;
+    uint8_t E;
+    uint8_t H;
+    uint8_t L;
+    uint16_t PC;
+    uint16_t SP;
+    uint8_t F;
+    opcode_t opcode;
+    uint16_t opcode_value;
+    
+} State;
+
+static State *traceback[TRACEBACK_SIZE];
+
+
+
+void add_to_traceback_stack(State *state){
+
+    // shift all states down and free the last state
+    if (traceback[TRACEBACK_SIZE-1]) {
+        free(traceback[TRACEBACK_SIZE-1]);
+    }
+    
+    for (int i = TRACEBACK_SIZE-1; i > 0; i--) {
+        traceback[i] = traceback[i-1]; 
+    }
+
+    traceback[0] = state;
+}
+
+void dump_traceback(){
+    for (int i = TRACEBACK_SIZE-1; i >= 0; i--){
+        if (traceback[i]){
+            char const *str = "AF: $%04X\tBC: $%04X\tDE: $%04X\t"
+                "HL: $%04X\tPC: $%04X\tSP: $%04X\t"
+                "Opcode: %02X (%04X) | %s";
+
+            log_error(str, 
+                U16(traceback[i]->A << 8 | traceback[i]->F),
+                U16(traceback[i]->B << 8 | traceback[i]->C),
+                U16(traceback[i]->D << 8 | traceback[i]->E),
+                U16(traceback[i]->H << 8 | traceback[i]->L),
+                U16(traceback[i]->PC),
+                U16(traceback[i]->SP),
+                traceback[i]->opcode,
+                traceback[i]->opcode_value,
+                OPCODE_NAMES[traceback[i]->opcode]
+            );
+            free(traceback[i]);
+        }
+    }
+}
 
 void dump_registers(){
     if (get_log_level() > LOG_TRACE){ return; }
@@ -32,7 +89,7 @@ void dump_registers(){
     
 }
 
-size_t _load_rom(const char *rom_path){
+size_t load_rom(const char *rom_path){
     FILE * rom = fopen(rom_path, "rb");
     if (!rom) {
         log_error("Failed to open ROM: %s", rom_path);
@@ -49,7 +106,6 @@ size_t _load_rom(const char *rom_path){
 
     log_info("Loaded ROM: %s", rom_path);
     log_info("ROM Size: %d bytes", size);
-    fdump_memory("rom.txt", ROM, size);
     return n;
 }
 
@@ -76,7 +132,7 @@ void gameboy_init(const char *rom_path){
 
     IO[0x44] = 145;
 
-    _load_rom(rom_path);
+    load_rom(rom_path);
 }
 
 int gameboy_loop(){
@@ -85,7 +141,7 @@ int gameboy_loop(){
     size_t tick_count = 0;
     while (1) {
         log_trace("Tick Begin: %d", tick_count);
-        n = _tick();
+        n = tick();
         if (!n) {
             log_error("Error occured");
             break;
@@ -96,19 +152,24 @@ int gameboy_loop(){
     return 0;
 }
 
-int _tick(){
+int tick(){
     opcycles_t cycles = 0; 
-    // address_t old_pc = REG_PC;
-    // address_t old_sp = REG_SP;
+    address_t old_pc = REG_PC;
+    address_t old_sp = REG_SP;
     
     //update cpu 
-    cycles += _tick_cpu(cycles);
+    cycles += tick_cpu(cycles);
     
-    // if (!CPU_HALTED && (old_pc == REG_PC) && (old_sp == REG_SP) && !CPU_STUCK){?
-    if (CPU_STUCK){
+    if (!CPU_HALTED && (old_pc == REG_PC) && (old_sp == REG_SP) && !CPU_STUCK){
+        CPU_STUCK = true;
+        dump_traceback();
         log_warn("CPU Stuck at PC: %04X, SP: %04X", REG_PC, REG_SP);
-        getchar();
+        exit(0);
     }
+    // if (CPU_STUCK){
+    //     log_warn("CPU Stuck at PC: %04X, SP: %04X", REG_PC, REG_SP);
+    //     getchar();
+    // }
 
     //update cartridge
     //update timers
@@ -120,11 +181,23 @@ int _tick(){
     return cycles;
 }
 
-opcycles_t _tick_cpu(){
+opcycles_t tick_cpu(){
     opcode_t opcode = READ_MEM(REG_PC);
     uint16_t offset = 0x00;
     opcycles_t opcycles = 0;
     opcode_def_t *opcycle_def = NULL;
+    State *traceback = (State *)malloc(sizeof(State));
+
+    if (!traceback) {
+        log_error("Failed to allocate memory for state");
+        exit(1);
+    }
+
+    if (REG_PC == BREAK_ADDRESS){
+        log_info("Break instruction: %04X", opcode);
+        DEBUG_STEP_MODE = true;
+    }
+
 
     if(opcode == 0xCB){
         offset = 0x100;
@@ -133,29 +206,43 @@ opcycles_t _tick_cpu(){
         opcycles++;
     }
 
+    traceback->A = REG_A;
+    traceback->B = REG_B;
+    traceback->C = REG_C;
+    traceback->D = REG_D;
+    traceback->E = REG_E;
+    traceback->H = REG_H;
+    traceback->L = REG_L;
+    traceback->PC = REG_PC;
+    traceback->SP = REG_SP;
+    traceback->F = REG_F;
+    traceback->opcode = opcode+offset;
+    
+
     int8_t oplen = OPCODE_LENGTH[(size_t)opcode+offset];
 
-    if (get_log_level() >= LOG_TRACE){
-        switch(oplen){
-            case 1:
-                log_trace("Opcode: %02X[%d length], Value: N/a | %s", opcode, OPCODE_LENGTH[(size_t)opcode], OPCODE_NAMES[(size_t)opcode]);
-                break;
+    switch(oplen){
+        case 1:
+            log_trace("Opcode: %02X[%d length], Value: N/a | %s", opcode, OPCODE_LENGTH[(size_t)opcode], OPCODE_NAMES[(size_t)opcode]);
+            traceback->opcode_value = 0x00;
+            break;
 
-            case 2:
-                log_trace("Opcode: %02X[%d length], Value: %02X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], READ_NEXT_BYTE(), OPCODE_NAMES[(size_t)opcode]);
-                break;
-                
-            case 3:
-                log_trace("Opcode: %02X[%d length], Value: %04X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], READ_NEXT_WORD(), OPCODE_NAMES[(size_t)opcode]);
-                break;
-        }
+        case 2:
+            log_trace("Opcode: %02X[%d length], Value: %02X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], READ_NEXT_BYTE(), OPCODE_NAMES[(size_t)opcode]);
+            traceback->opcode_value = READ_NEXT_BYTE();
+            break;
+            
+        case 3:
+            log_trace("Opcode: %02X[%d length], Value: %04X | %s", opcode, OPCODE_LENGTH[(size_t)opcode], READ_NEXT_WORD(), OPCODE_NAMES[(size_t)opcode]);
+            traceback->opcode_value = READ_NEXT_WORD();
+            break;
     }
 
 
     opcycle_def = opcodes[opcode+offset];
-
     // TODO: remove me once all opcodes are implemented
     if(!opcycle_def){
+        dump_traceback();
         log_error("Invalid opcode: %02X", opcode);
         exit(1);
     }
@@ -163,11 +250,13 @@ opcycles_t _tick_cpu(){
     opcycles += opcycle_def();
     REG_PC   += OPCODE_LENGTH[opcode+offset];
 
+    add_to_traceback_stack(traceback);
+
     dump_registers();
 
     if (opcode == BREAK_INSTR){
         log_info("Break instruction: %04X", opcode);
-        exit(0);
+        getchar();
     }
 
     return opcycles;
@@ -223,7 +312,7 @@ uint8_t fetch_item(address_t address){
 
 void write_item(address_t address, uint8_t value){
     // write serial to stdout 
-    if (address == 0xFF02 && value == 0x81){
+    if (address == 0xFF02){
         printf("%c", IO[0x01]);
     }
 

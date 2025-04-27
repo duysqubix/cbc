@@ -440,6 +440,19 @@ static opcycles_t jp_nn(){              // 0xC3
     return MCYCLE_4;
 }
 
+static opcycles_t call_nz_nn(){        // 0xC4
+    if (!FLAG_Z_IS_SET()){
+        WRITE_MEM(REG_SP-1, (REG_PC+3) >> 8);
+        WRITE_MEM(REG_SP-2, (REG_PC+3) & 0xFF);
+        REG_SP -= 2;
+        REG_PC = READ_NEXT_WORD()-3;
+        // dump_registers();
+        // exit(0);
+        return MCYCLE_6;
+    }
+    return MCYCLE_3;
+}
+
 static opcycles_t push_bc(){            // 0xC5
     WRITE_MEM(REG_SP-1, REG_B);
     WRITE_MEM(REG_SP-2, REG_C);
@@ -745,7 +758,7 @@ opcode_def_t *opcodes[512] = {
     [0xC1] = &pop_bc,
     [0xC2] = &jp_nz_nn,
     [0xC3] = &jp_nn,
-    [0xC4] = NULL,
+    [0xC4] = &call_nz_nn,
     [0xC5] = &push_bc,
     [0xC6] = NULL,
     [0xC7] = NULL,
