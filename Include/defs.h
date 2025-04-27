@@ -88,42 +88,41 @@
     if (((U16(a)-U16(b)) & (0x100)) != 0) { FLAG_C_SET(); }                 \
 }
 
+
+#define AND_SET_FLAGS(a, b)                                                \
+{                                                                          \
+    uint8_t r = a & b;                                                      \
+    FLAG_Z_RESET();                                                        \
+    FLAG_N_RESET();                                                        \
+    FLAG_H_RESET();                                                        \
+    FLAG_C_RESET();                                                        \
+    if (!r) { FLAG_Z_SET(); }                                              \
+    a = r;                                                                 \
+}
+
+#define ADD_SET_FLAGS16(ahigh, alow, bhigh, blow)                           \
+{                                                                           \
+    uint16_t a = U16(ahigh) << 8 | U16(alow);                               \
+    uint16_t b = U16(bhigh) << 8 | U16(blow);                               \
+    uint16_t r = a + b;                                                     \
+    FLAG_N_RESET();                                                         \
+    FLAG_H_RESET();                                                         \
+    FLAG_C_RESET();                                                         \
+    if (r & 0x10000) { FLAG_C_SET(); }                                      \
+    if ((a^b^r) & 0x1000) { FLAG_H_SET(); }                                 \
+    ahigh = U8(r >> 8);                                                     \
+    alow = U8(r & 0xFF);                                                    \
+}
+
 #define OR_SET_FLAGS(a, b)                          \
 {                                                   \
-    FLAG_Z_RESET();                                 \
-    if (!REG_A) { FLAG_Z_SET(); }                   \
-    FLAG_N_RESET();                                 \
-    FLAG_H_RESET();                                 \
-    FLAG_C_RESET();                                 \
-}
-
-#define XOR_SET_FLAGS(a, b)                         \
-{                                                   \
-    FLAG_Z_RESET();                                 \
-    FLAG_N_RESET();                                 \
-    FLAG_H_RESET();                                 \
-    FLAG_C_RESET();                                 \
-    if (!a) { FLAG_Z_SET(); }                       \
-}
-
-#define AND_SET_FLAGS(a, b)                         \
-{                                                   \
-    FLAG_Z_RESET();                                 \
-    FLAG_N_RESET();                                 \
-    FLAG_H_SET();                                   \
-    FLAG_C_RESET();                                 \
-    if (!a) { FLAG_Z_SET(); }                       \
-}   
-
-
-#define ADD_SET_FLAGS16(a, b)                                       \
-{                                                                   \
-    FLAG_N_RESET();                                                 \
-    FLAG_H_RESET();                                                 \
-    FLAG_C_RESET();                                                 \
-    if ((U32(a) + U32(b)) & 0x10000) { FLAG_C_SET();}               \
-    if (((U32(a)^U32(b)^(U32(a)+U32(b)))&0x1000) != 0)              \
-    {FLAG_H_SET();}                                                 \
+    uint8_t r = a | b;                                  \
+    FLAG_Z_RESET();                                     \
+    if (!r) { FLAG_Z_SET(); }                           \
+    FLAG_N_RESET();                                     \
+    FLAG_H_RESET();                                     \
+    FLAG_C_RESET();                                     \
+    a = r;                                          \
 }
 
 #define INC_BC()                                    \
@@ -214,6 +213,7 @@ extern opcode_def_t *opcodes[512];
 extern bool CPU_STUCK;
 extern bool CPU_HALTED;
 extern bool DEBUG_STEP_MODE;
+extern uint16_t BREAK_INSTR;
 
 extern uint8_t     fetch_item(address_t address);
 extern void        write_item(address_t address, uint8_t value);
@@ -224,9 +224,13 @@ void gameboy_free();
 int  gameboy_loop();
 void randomize(uint8_t *data, size_t size);
 opcycles_t execute_opcode(opcode_t opcode, uint16_t value);
+void dump_memory();
 
 // utilities 
 void fdump_memory(const char *filename, uint8_t *data, size_t size);
 void dump_registers();
+
+
+
 
 #endif

@@ -434,9 +434,18 @@ Main:
 	cp $10 
 	jp nz, .fail 
 
+	; 0xCD // CALL nn 
+	ld a, $1 
+	cp $0 
+	call .test_call 
+	jp nz, .fail
 
 	jp .finished
 
+.test_call
+	ld a, $12 
+	cp $12 
+	ret
 
 .fail 
 	ld hl, $feeb

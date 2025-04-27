@@ -1,5 +1,6 @@
 
 #include "defs.h"
+#include "log.h"
 
 
 static opcycles_t nop(){                            // 0x00
@@ -62,10 +63,8 @@ static opcycles_t ld_mem_nn_sp(){     // 0x08
 }
 
 static opcycles_t add_hl_bc(){        // 0x09
-    ADD_SET_FLAGS16(HL(), BC());
+    ADD_SET_FLAGS16(REG_H, REG_L, REG_B, REG_C);
 
-    REG_H = U8((U16(HL()) + U16(BC())) >> 8);
-    REG_L = U8((U16(HL()) + U16(BC())) & 0xFF);
     return MCYCLE_2;
 }
 
@@ -172,15 +171,12 @@ static opcycles_t rla(){              // 0x17
 }
 
 static opcycles_t jr_i8(){             // 0x18
-    REG_PC += i8(READ_NEXT_BYTE())-2;
+    REG_PC += i8(READ_NEXT_BYTE());
     return MCYCLE_3;
 }
 
 static opcycles_t add_hl_de(){         // 0x19
-    ADD_SET_FLAGS16(HL(), DE());
-    uint16_t result = HL() + DE();
-    REG_H = U8(result >> 8);
-    REG_L = U8(result & 0xFF);
+    ADD_SET_FLAGS16(REG_H, REG_L, REG_D, REG_E);
     return MCYCLE_2;
 }
 
@@ -256,6 +252,25 @@ static opcycles_t ld_hlp_a(){            // 0x22
     return MCYCLE_2;
 }
 
+static opcycles_t inc_hl(){            // 0x23
+    INC_HL();
+    return MCYCLE_1;
+}
+
+static opcycles_t inc_h(){             // 0x24
+    REG_H++;
+    return MCYCLE_1;
+}
+
+static opcycles_t dec_h(){             // 0x25
+    REG_H--;
+    return MCYCLE_1;
+}
+
+static opcycles_t ld_h_n(){             // 0x26
+    REG_H = READ_NEXT_BYTE();
+    return MCYCLE_2;
+}
 
 static opcycles_t daa(){              // 0x27
     uint16_t daa_result = U16(REG_A);
@@ -295,6 +310,28 @@ static opcycles_t daa(){              // 0x27
     return MCYCLE_2;    
 }
 
+static opcycles_t jr_z_i8(){             // 0x28
+    if (FLAG_Z_IS_SET()){
+        REG_PC += i8(READ_NEXT_BYTE())-2;
+        return MCYCLE_3;
+    }
+    return MCYCLE_2;
+}
+
+static opcycles_t add_hl_hl(){         // 0x29
+    ADD_SET_FLAGS16(REG_H, REG_L, REG_H, REG_L);
+
+    return MCYCLE_2;
+}
+
+static opcycles_t ld_a_mem_hlp(){       // 0x2A
+    REG_A = READ_MEM(HL());
+    INC_HL();
+    return MCYCLE_2;
+}
+
+
+
 static opcycles_t ld_sp_nn(){           // 0x31
     REG_SP = READ_NEXT_WORD();
     return MCYCLE_3;
@@ -303,6 +340,11 @@ static opcycles_t ld_sp_nn(){           // 0x31
 static opcycles_t ld_mem_hl_n(){       // 0x36
     WRITE_MEM(HL(), READ_NEXT_BYTE());
     return MCYCLE_3;
+}
+
+static opcycles_t inc_a(){             // 0x3C
+    REG_A++;
+    return MCYCLE_1;
 }
 
 static opcycles_t ld_a_n(){             // 0x3E
@@ -371,6 +413,19 @@ static opcycles_t ld_a_l(){             // 0x7D
     return MCYCLE_1;
 }
 
+
+static opcycles_t or_c(){              // 0xB1
+    OR_SET_FLAGS(REG_A, REG_C);
+    return MCYCLE_1;
+}
+
+static opcycles_t pop_bc(){            // 0xC1
+    REG_C = READ_MEM(REG_SP);
+    REG_B = READ_MEM(REG_SP+1);
+    REG_SP += 2;
+    return MCYCLE_3;
+}
+
 static opcycles_t jp_nz_nn(){          // 0xC2
         if (!FLAG_Z_IS_SET()){
             REG_PC = READ_NEXT_WORD()-3;
@@ -383,6 +438,33 @@ static opcycles_t jp_nn(){              // 0xC3
     // Adjust PC to account for REG_PC being incremented on return
     REG_PC = READ_NEXT_WORD()-3;
     return MCYCLE_4;
+}
+
+static opcycles_t push_bc(){            // 0xC5
+    WRITE_MEM(REG_SP-1, REG_B);
+    WRITE_MEM(REG_SP-2, REG_C);
+    REG_SP -= 2;
+    return MCYCLE_4;
+}
+
+static opcycles_t ret(){                // 0xC9
+    REG_PC = READ_MEM(REG_SP+1) << 8 | READ_MEM(REG_SP);
+    REG_PC--;
+    REG_SP += 2;
+    return MCYCLE_4;
+}
+
+static opcycles_t call_nn(){            // 0xCD
+    WRITE_MEM(REG_SP-1, (REG_PC+3) >> 8);
+    WRITE_MEM(REG_SP-2, (REG_PC+3) & 0xFF);
+    REG_SP -= 2;
+    REG_PC = READ_NEXT_WORD()-3;
+    return MCYCLE_6;
+}
+
+static opcycles_t ldh_mem_n_a(){        // 0xE0
+    WRITE_MEM(0xFF00 + READ_NEXT_BYTE(), REG_A);
+    return MCYCLE_3;
 }
 
 static opcycles_t pop_hl(){             // 0xE1
@@ -402,6 +484,11 @@ static opcycles_t push_hl(){             // 0xE5
 static opcycles_t ld_mm_nn_a(){         // 0xEA
     WRITE_MEM(READ_NEXT_WORD(), REG_A);
     return MCYCLE_4;
+}
+
+static opcycles_t and_n(){             // 0xE6
+    AND_SET_FLAGS(REG_A, READ_NEXT_BYTE());
+    return MCYCLE_2;
 }
 
 static opcycles_t di(){                 // 0xF3
@@ -436,6 +523,11 @@ static opcycles_t ld_sp_hl(){           // 0xF9
     return MCYCLE_2;
 }
 
+static opcycles_t ldh_a_n(){             // 0xF0
+    REG_A = READ_MEM(0xFF00 + READ_NEXT_BYTE());
+    return MCYCLE_3;
+}
+
 static opcycles_t ld_a_mem_nn(){        // 0xFA
     REG_A = READ_MEM(READ_NEXT_WORD());
     return MCYCLE_4;
@@ -444,6 +536,15 @@ static opcycles_t ld_a_mem_nn(){        // 0xFA
 static opcycles_t cp_n(){               // 0xFE
     CP_SET_FLAGS(REG_A, READ_NEXT_BYTE());
     return MCYCLE_2;
+}
+
+static opcycles_t rst_38(){             // 0xFF
+    log_info("pch: %02X, pcl: %02X", (REG_PC+1) >> 8, (REG_PC+1) & 0xFF);
+    WRITE_MEM(REG_SP-1, (REG_PC+1) >> 8);
+    WRITE_MEM(REG_SP-2, (REG_PC+1) & 0xFF);
+    REG_SP -= 2;
+    REG_PC = 0x0038-1;
+    return MCYCLE_4;
 }
 
 
@@ -483,14 +584,14 @@ opcode_def_t *opcodes[512] = {
     [0x20] = &jr_nz_i8,
     [0x21] = &ld_hl_nn,
     [0x22] = &ld_hlp_a,
-    [0x23] = NULL,
-    [0x24] = NULL,
-    [0x25] = NULL,
-    [0x26] = NULL,
+    [0x23] = &inc_hl,
+    [0x24] = &inc_h,
+    [0x25] = &dec_h,
+    [0x26] = &ld_h_n,
     [0x27] = &daa,
-    [0x28] = NULL,
-    [0x29] = NULL,
-    [0x2A] = NULL,
+    [0x28] = &jr_z_i8,
+    [0x29] = &add_hl_hl,
+    [0x2A] = &ld_a_mem_hlp,
     [0x2B] = NULL,
     [0x2C] = NULL,
     [0x2D] = NULL,
@@ -508,7 +609,7 @@ opcode_def_t *opcodes[512] = {
     [0x39] = NULL,
     [0x3A] = NULL,
     [0x3B] = NULL,
-    [0x3C] = NULL,
+    [0x3C] = &inc_a,
     [0x3D] = NULL,
     [0x3E] = &ld_a_n,
     [0x3F] = NULL,
@@ -625,7 +726,7 @@ opcode_def_t *opcodes[512] = {
     [0xAE] = NULL,
     [0xAF] = NULL,
     [0xB0] = NULL,
-    [0xB1] = NULL,
+    [0xB1] = &or_c,
     [0xB2] = NULL,
     [0xB3] = NULL,
     [0xB4] = NULL,
@@ -641,19 +742,19 @@ opcode_def_t *opcodes[512] = {
     [0xBE] = NULL,
     [0xBF] = NULL,
     [0xC0] = NULL,
-    [0xC1] = NULL,
+    [0xC1] = &pop_bc,
     [0xC2] = &jp_nz_nn,
     [0xC3] = &jp_nn,
     [0xC4] = NULL,
-    [0xC5] = NULL,
+    [0xC5] = &push_bc,
     [0xC6] = NULL,
     [0xC7] = NULL,
     [0xC8] = NULL,
-    [0xC9] = NULL,
+    [0xC9] = &ret,
     [0xCA] = NULL,
     [0xCB] = NULL,
     [0xCC] = NULL,
-    [0xCD] = NULL,
+    [0xCD] = &call_nn,
     [0xCE] = NULL,
     [0xCF] = NULL,
     [0xD0] = NULL,
@@ -672,13 +773,13 @@ opcode_def_t *opcodes[512] = {
     [0xDD] = NULL,
     [0xDE] = NULL,
     [0xDF] = NULL,
-    [0xE0] = NULL,
+    [0xE0] = &ldh_mem_n_a,
     [0xE1] = &pop_hl,
     [0xE2] = NULL,
     [0xE3] = NULL,
     [0xE4] = NULL,
     [0xE5] = &push_hl,
-    [0xE6] = NULL,
+    [0xE6] = &and_n,
     [0xE7] = NULL,
     [0xE8] = NULL,
     [0xE9] = NULL,
@@ -688,7 +789,7 @@ opcode_def_t *opcodes[512] = {
     [0xED] = NULL,
     [0xEE] = NULL,
     [0xEF] = NULL,
-    [0xF0] = NULL,
+    [0xF0] = &ldh_a_n,
     [0xF1] = &pop_af,
     [0xF2] = NULL,
     [0xF3] = &di,
@@ -703,5 +804,5 @@ opcode_def_t *opcodes[512] = {
     [0xFC] = NULL,
     [0xFD] = NULL,
     [0xFE] = &cp_n,
-    [0xFF] = NULL,
+    [0xFF] = &rst_38,
 };
