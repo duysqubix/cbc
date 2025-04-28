@@ -1,0 +1,9 @@
+*.o
+*.swp
+*.gb
+*.sym
+*.obj
+*.map
+**/*.gb
+**/*.sym
+**/*.txt
