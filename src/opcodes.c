@@ -1,565 +1,550 @@
-
-#include "defs.h"
+#include "opcodes.h"
 #include "log.h"
 
 
-static opcycles_t nop(){                            // 0x00
+static gbcycles_t nop(Gameboy *gb){                            // 0x00
     return MCYCLE_1;
 }
 
-static opcycles_t ld_bc_nn(){                       // 0x01
-    uint16_t value = READ_NEXT_WORD();
-    REG_B = U8(value >> 8);
-    REG_C = U8(value & 0xFF);
+static gbcycles_t ld_bc_nn(Gameboy *gb){                       // 0x01
+    // uint16_t value = READ_NEXT_WORD();
+    // REG_B = U8(value >> 8);
+    // REG_C = U8(value & 0xFF);
     return MCYCLE_3;
 }
 
-static opcycles_t ld_mem_bc_a(){     // 0x02
-    WRITE_MEM(BC(), REG_A);
+static gbcycles_t ld_mem_bc_a(Gameboy *gb){     // 0x02
+    // WRITE_MEM(BC(), REG_A);
     return MCYCLE_2;
 }
 
-static opcycles_t inc_bc(){         // 0x03
-    INC_BC();
+static gbcycles_t inc_bc(Gameboy *gb){         // 0x03
+    // INC_BC();
     return MCYCLE_1;
 }
 
-static opcycles_t inc_b(){          // 0x04
-    REG_B++;
+static gbcycles_t inc_b(Gameboy *gb){          // 0x04
+    // REG_B++;
     return MCYCLE_1;
 }
 
-static opcycles_t dec_b(){          // 0x05
-    REG_B--;
+static gbcycles_t dec_b(Gameboy *gb){          // 0x05
+    // REG_B--;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_b_n(){         // 0x06
-    REG_B = READ_NEXT_BYTE();
+static gbcycles_t ld_b_n(Gameboy *gb){         // 0x06
+    // REG_B = READ_NEXT_BYTE();
     return MCYCLE_2;
 }
 
-static opcycles_t rlca(){          // 0x07
-    FLAG_Z_RESET();
-    FLAG_N_RESET();
-    FLAG_H_RESET();
-    FLAG_C_RESET();
+static gbcycles_t rlca(Gameboy *gb){          // 0x07
+    // FLAG_Z_RESET();
+    // FLAG_N_RESET();
+    // FLAG_H_RESET();
+    // FLAG_C_RESET();
 
-    if BIT_IS_SET(REG_A, 7){
-        FLAG_C_SET();
-        REG_A = (REG_A << 1) + 1;
-    } else {
-        REG_A <<= 1;
-    }
+    // if BIT_IS_SET(REG_A, 7){
+    //     FLAG_C_SET();
+    //     REG_A = (REG_A << 1) + 1;
+    // } else {
+    //     REG_A <<= 1;
+    // }
 
     return MCYCLE_1;
 }
 
-static opcycles_t ld_mem_nn_sp(){     // 0x08
-    uint16_t value = READ_NEXT_WORD();
-    WRITE_MEM(U16(value), U8(REG_SP & 0xFF));
-    WRITE_MEM(U16(value+1), U8(REG_SP >> 8));
+static gbcycles_t ld_mem_nn_sp(Gameboy *gb){     // 0x08
+    // uint16_t value = READ_NEXT_WORD();
+    // WRITE_MEM(U16(value), U8(REG_SP & 0xFF));
+    // WRITE_MEM(U16(value+1), U8(REG_SP >> 8));
     return MCYCLE_5;
 }
 
-static opcycles_t add_hl_bc(){        // 0x09
-    ADD_SET_FLAGS16(REG_H, REG_L, REG_B, REG_C);
+static gbcycles_t add_hl_bc(Gameboy *gb){        // 0x09
+    // ADD_SET_FLAGS16(REG_H, REG_L, REG_B, REG_C);
 
     return MCYCLE_2;
 }
 
-static opcycles_t ld_a_mem_bc(){      // 0x0A
-    REG_A = READ_MEM(BC());
+static gbcycles_t ld_a_mem_bc(Gameboy *gb){      // 0x0A
+    // REG_A = READ_MEM(BC());
     return MCYCLE_2;
 }
 
-static opcycles_t dec_bc(){          // 0x0B
-    DEC_BC();
+static gbcycles_t dec_bc(Gameboy *gb){          // 0x0B
+    // DEC_BC();
     return MCYCLE_2;
 }
 
-static opcycles_t inc_c(){          // 0x0C
-    REG_C++;
+static gbcycles_t inc_c(Gameboy *gb){          // 0x0C
+    // REG_C++;
     return MCYCLE_1;
 }
 
-static opcycles_t dec_c(){          // 0x0D
-    REG_C--;
+static gbcycles_t dec_c(Gameboy *gb){          // 0x0D
+    // REG_C--;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_c_n(){          // 0x0E
-    REG_C = READ_NEXT_BYTE();
+static gbcycles_t ld_c_n(Gameboy *gb){          // 0x0E
+    // REG_C = READ_NEXT_BYTE();
     return MCYCLE_2;
 }
 
-static opcycles_t rrca(){          // 0x0F
-    FLAG_Z_RESET();
-    FLAG_N_RESET();
-    FLAG_H_RESET();
-    FLAG_C_RESET();
+static gbcycles_t rrca(Gameboy *gb){          // 0x0F
+    // FLAG_Z_RESET();
+    // FLAG_N_RESET();
+    // FLAG_H_RESET();
+    // FLAG_C_RESET();
 
-    if BIT_IS_SET(REG_A, 0){
-        FLAG_C_SET();
-        REG_A = (REG_A >> 1) + 0x80;
-    } else {
-        REG_A >>= 1;
-    }
+    // if BIT_IS_SET(REG_A, 0){
+    //     FLAG_C_SET();
+    //     REG_A = (REG_A >> 1) + 0x80;
+    // } else {
+    //     REG_A >>= 1;
+    // }
 
     return MCYCLE_1;
 }
 
-static opcycles_t stop(){             // 0x10
-    CPU_HALTED = true;
-    CPU_STUCK = true;
+static gbcycles_t stop(Gameboy *gb){             // 0x10
+    // CPU_HALTED = true;
+    // CPU_STUCK = true;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_mem_de_nn(){       // 0x11
-    uint16_t value = READ_NEXT_WORD();
-    REG_D = U8(value >> 8);
-    REG_E = U8(value & 0xFF);
+static gbcycles_t ld_mem_de_nn(Gameboy *gb){       // 0x11
+    // uint16_t value = READ_NEXT_WORD();
+    // REG_D = U8(value >> 8);
+    // REG_E = U8(value & 0xFF);
     return MCYCLE_3;
 }
 
-static opcycles_t ld_mem_de_a(){        // 0x12 
-    WRITE_MEM(DE(), REG_A);
+static gbcycles_t ld_mem_de_a(Gameboy *gb){        // 0x12 
+    // WRITE_MEM(DE(), REG_A);
     return MCYCLE_2;
 }
 
-static opcycles_t inc_de(){             // 0x13
-    INC_DE();
+static gbcycles_t inc_de(Gameboy *gb){             // 0x13
+    // INC_DE();
     return MCYCLE_1;
 }
 
-static opcycles_t inc_d(){              // 0x14
-    REG_D++;
+static gbcycles_t inc_d(Gameboy *gb){              // 0x14
+    // REG_D++;
     return MCYCLE_1;
 }
 
-static opcycles_t dec_d(){              // 0x15
-    REG_D--;
+static gbcycles_t dec_d(Gameboy *gb){              // 0x15
+    // REG_D--;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_d_n(){             // 0x16
-    REG_D = READ_NEXT_BYTE();
+static gbcycles_t ld_d_n(Gameboy *gb){             // 0x16
+    // REG_D = READ_NEXT_BYTE();
     return MCYCLE_2;
 }
 
-static opcycles_t rla(){              // 0x17
-    FLAG_Z_RESET();
-    FLAG_N_RESET();
-    FLAG_H_RESET();
+static gbcycles_t rla(Gameboy *gb){              // 0x17
+    // FLAG_Z_RESET();
+    // FLAG_N_RESET();
+    // FLAG_H_RESET();
 
-    uint8_t prev_carry = FLAG_C_IS_SET();
+    // uint8_t prev_carry = FLAG_C_IS_SET();
 
-    if BIT_IS_SET(REG_A, 7){
-        FLAG_C_SET();
-    }else{
-        FLAG_C_RESET();
-    }
+    // if BIT_IS_SET(REG_A, 7){
+    //     FLAG_C_SET();
+    // }else{
+    //     FLAG_C_RESET();
+    // }
 
-    REG_A = (REG_A << 1) & 0xff;
+    // REG_A = (REG_A << 1) & 0xff;
 
-    if (prev_carry){
-        REG_A |= 0x01;
-    }
+    // if (prev_carry){
+    //     REG_A |= 0x01;
+    // }
 
     return MCYCLE_1;
-    
 }
 
-static opcycles_t jr_i8(){             // 0x18
-    REG_PC += i8(READ_NEXT_BYTE());
+static gbcycles_t jr_i8(Gameboy *gb){             // 0x18
+    // REG_PC += i8(READ_NEXT_BYTE());
     return MCYCLE_3;
 }
 
-static opcycles_t add_hl_de(){         // 0x19
-    ADD_SET_FLAGS16(REG_H, REG_L, REG_D, REG_E);
+static gbcycles_t add_hl_de(Gameboy *gb){         // 0x19
+    // ADD_SET_FLAGS16(REG_H, REG_L, REG_D, REG_E);
     return MCYCLE_2;
 }
 
-static opcycles_t ld_a_mem_de(){       // 0x1A
-    REG_A = READ_MEM(DE());
+static gbcycles_t ld_a_mem_de(Gameboy *gb){       // 0x1A
+    // REG_A = READ_MEM(DE());
     return MCYCLE_2;
 }
 
-static opcycles_t dec_de(){             // 0x1B
-    DEC_DE();
+static gbcycles_t dec_de(Gameboy *gb){             // 0x1B
+    // DEC_DE();
     return MCYCLE_1;
 }
 
-static opcycles_t inc_e(){              // 0x1C
-    REG_E++;
+static gbcycles_t inc_e(Gameboy *gb){              // 0x1C
+    // REG_E++;
     return MCYCLE_1;
 }
 
-static opcycles_t dec_e(){              // 0x1D
-    REG_E--;
+static gbcycles_t dec_e(Gameboy *gb){              // 0x1D
+    // REG_E--;
     return MCYCLE_1;
 }
 
-
-static opcycles_t ld_e_n(){             // 0x1E
-    REG_E = READ_NEXT_BYTE();
+static gbcycles_t ld_e_n(Gameboy *gb){             // 0x1E
+    // REG_E = READ_NEXT_BYTE();
     return MCYCLE_2;
 }
 
-static opcycles_t rra(){              // 0x1F
-    FLAG_Z_RESET();
-    FLAG_N_RESET();
-    FLAG_H_RESET();
+static gbcycles_t rra(Gameboy *gb){              // 0x1F
+    // FLAG_Z_RESET();
+    // FLAG_N_RESET();
+    // FLAG_H_RESET();
 
-    uint8_t prev_carry = FLAG_C_IS_SET();
+    // uint8_t prev_carry = FLAG_C_IS_SET();
 
-    if BIT_IS_SET(REG_A, 0){
-        FLAG_C_SET();
-    }else{
-        FLAG_C_RESET();
-    }
+    // if BIT_IS_SET(REG_A, 0){
+    //     FLAG_C_SET();
+    // }else{
+    //     FLAG_C_RESET();
+    // }
 
-    REG_A = (REG_A >> 1) & 0xFF;
+    // REG_A = (REG_A >> 1) & 0xFF;
 
-    if (prev_carry){
-        REG_A |= 0x80;
-    }
+    // if (prev_carry){
+    //     REG_A |= 0x80;
+    // }
 
     return MCYCLE_1;
-    
 }
 
-static opcycles_t jr_nz_i8(){         // 0x20
-    if (!FLAG_Z_IS_SET()){
-        REG_PC += i8(READ_NEXT_BYTE())-2;
-        return MCYCLE_3;
-    }
+static gbcycles_t jr_nz_i8(Gameboy *gb){         // 0x20
+    // if (!FLAG_Z_IS_SET()){
+    //     REG_PC += i8(READ_NEXT_BYTE())-2;
+    //     return MCYCLE_3;
+    // }
     return MCYCLE_2;
 }
 
-
-static opcycles_t ld_hl_nn(){           // 0x21
-    uint16_t value = READ_NEXT_WORD();
-    REG_H = U8(value >> 8);
-    REG_L = U8(value & 0xFF);
+static gbcycles_t ld_hl_nn(Gameboy *gb){           // 0x21
+    // uint16_t value = READ_NEXT_WORD();
+    // REG_H = U8(value >> 8);
+    // REG_L = U8(value & 0xFF);
     return MCYCLE_3;
 }
 
-
-static opcycles_t ld_hlp_a(){            // 0x22 
-    WRITE_MEM(HL(), REG_A);
-    INC_HL();
+static gbcycles_t ld_hlp_a(Gameboy *gb){            // 0x22 
+    // WRITE_MEM(HL(), REG_A);
+    // INC_HL();
     return MCYCLE_2;
 }
 
-static opcycles_t inc_hl(){            // 0x23
-    INC_HL();
+static gbcycles_t inc_hl(Gameboy *gb){            // 0x23
+    // INC_HL();
     return MCYCLE_1;
 }
 
-static opcycles_t inc_h(){             // 0x24
-    REG_H++;
+static gbcycles_t inc_h(Gameboy *gb){             // 0x24
+    // REG_H++;
     return MCYCLE_1;
 }
 
-static opcycles_t dec_h(){             // 0x25
-    REG_H--;
+static gbcycles_t dec_h(Gameboy *gb){             // 0x25
+    // REG_H--;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_h_n(){             // 0x26
-    REG_H = READ_NEXT_BYTE();
+static gbcycles_t ld_h_n(Gameboy *gb){             // 0x26
+    // REG_H = READ_NEXT_BYTE();
     return MCYCLE_2;
 }
 
-static opcycles_t daa(){              // 0x27
-    uint16_t daa_result = U16(REG_A);
+static gbcycles_t daa(Gameboy *gb){              // 0x27
+    // uint16_t daa_result = U16(REG_A);
 
-    FLAG_Z_RESET();
+    // FLAG_Z_RESET();
 
-    if (FLAG_N_IS_SET()){
-        if(FLAG_H_IS_SET()){
-            daa_result = (daa_result - 0x06) & 0xff;
-        }
+    // if (FLAG_N_IS_SET()){
+    //     if(FLAG_H_IS_SET()){
+    //         daa_result = (daa_result - 0x06) & 0xff;
+    //     }
 
-        if(FLAG_C_IS_SET()){
-            daa_result -= 0x60;
-        }
-    }else{
-        if (FLAG_H_IS_SET() || (daa_result &0x0f) > 0x09){
-            daa_result += 0x06;
-        }
+    //     if(FLAG_C_IS_SET()){
+    //         daa_result -= 0x60;
+    //     }
+    // }else{
+    //     if (FLAG_H_IS_SET() || (daa_result &0x0f) > 0x09){
+    //         daa_result += 0x06;
+    //     }
 
-        if (FLAG_C_IS_SET() || daa_result > 0x9F){
-            daa_result += 0x60;
-        }
-    }
+    //     if (FLAG_C_IS_SET() || daa_result > 0x9F){
+    //         daa_result += 0x60;
+    //     }
+    // }
 
-    if((daa_result & 0xff) == 0 ){
-        FLAG_Z_SET();
-    }
+    // if((daa_result & 0xff) == 0 ){
+    //     FLAG_Z_SET();
+    // }
 
-    if((daa_result & 0x100) == 0x100){
-        FLAG_C_SET();
-    }
+    // if((daa_result & 0x100) == 0x100){
+    //     FLAG_C_SET();
+    // }
 
-    FLAG_H_RESET();
+    // FLAG_H_RESET();
 
-    REG_A = U8(daa_result);
-
-    return MCYCLE_2;    
-}
-
-static opcycles_t jr_z_i8(){             // 0x28
-    if (FLAG_Z_IS_SET()){
-        REG_PC += i8(READ_NEXT_BYTE())-2;
-        return MCYCLE_3;
-    }
-    return MCYCLE_2;
-}
-
-static opcycles_t add_hl_hl(){         // 0x29
-    ADD_SET_FLAGS16(REG_H, REG_L, REG_H, REG_L);
+    // REG_A = U8(daa_result);
 
     return MCYCLE_2;
 }
 
-static opcycles_t ld_a_mem_hlp(){       // 0x2A
-    REG_A = READ_MEM(HL());
-    INC_HL();
+static gbcycles_t jr_z_i8(Gameboy *gb){             // 0x28
+    // if (FLAG_Z_IS_SET()){
+    //     REG_PC += i8(READ_NEXT_BYTE())-2;
+    //     return MCYCLE_3;
+    // }
     return MCYCLE_2;
 }
 
+static gbcycles_t add_hl_hl(Gameboy *gb){         // 0x29
+    // ADD_SET_FLAGS16(REG_H, REG_L, REG_H, REG_L);
 
+    return MCYCLE_2;
+}
 
-static opcycles_t ld_sp_nn(){           // 0x31
-    REG_SP = READ_NEXT_WORD();
+static gbcycles_t ld_a_mem_hlp(Gameboy *gb){       // 0x2A
+    // REG_A = READ_MEM(HL());
+    // INC_HL();
+    return MCYCLE_2;
+}
+
+static gbcycles_t ld_sp_nn(Gameboy *gb){           // 0x31
+    // REG_SP = READ_NEXT_WORD();
     return MCYCLE_3;
 }
 
-static opcycles_t ld_mem_hl_n(){       // 0x36
-    WRITE_MEM(HL(), READ_NEXT_BYTE());
+static gbcycles_t ld_mem_hl_n(Gameboy *gb){       // 0x36
+    // WRITE_MEM(HL(), READ_NEXT_BYTE());
     return MCYCLE_3;
 }
 
-static opcycles_t inc_a(){             // 0x3C
-    REG_A++;
+static gbcycles_t inc_a(Gameboy *gb){             // 0x3C
+    // REG_A++;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_n(){             // 0x3E
-    REG_A = READ_NEXT_BYTE();
+static gbcycles_t ld_a_n(Gameboy *gb){             // 0x3E
+    // REG_A = READ_NEXT_BYTE();
     return MCYCLE_2;
 }
 
-static opcycles_t ld_b_a(){             // 0x47
-    REG_B = REG_A;
+static gbcycles_t ld_b_a(Gameboy *gb){             // 0x47
+    // REG_B = REG_A;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_c_l(){             // 0x4D
-    REG_C = REG_L;
+static gbcycles_t ld_c_l(Gameboy *gb){             // 0x4D
+    // REG_C = REG_L;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_d_h(){             //0x54 
-    REG_D = REG_H;
+static gbcycles_t ld_d_h(Gameboy *gb){             //0x54 
+    // REG_D = REG_H;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_e_l(){             // 0x5D
-    REG_E = REG_L;
+static gbcycles_t ld_e_l(Gameboy *gb){             // 0x5D
+    // REG_E = REG_L;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_h_d(){             // 0x62
-    REG_H = REG_D;
+static gbcycles_t ld_h_d(Gameboy *gb){             // 0x62
+    // REG_H = REG_D;
     return MCYCLE_1;
 }
 
-
-static opcycles_t ld_l_e(){             // 0x6B 
-    REG_L = REG_E;
+static gbcycles_t ld_l_e(Gameboy *gb){             // 0x6B 
+    // REG_L = REG_E;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_b(){             // 0x78
-    REG_A = REG_B;
+static gbcycles_t ld_a_b(Gameboy *gb){             // 0x78
+    // REG_A = REG_B;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_c(){             // 0x79
-    REG_A = REG_C;
+static gbcycles_t ld_a_c(Gameboy *gb){             // 0x79
+    // REG_A = REG_C;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_d(){             // 0x7A
-    REG_A = REG_D;
+static gbcycles_t ld_a_d(Gameboy *gb){             // 0x7A
+    // REG_A = REG_D;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_e(){             // 0x7B
-    REG_A = REG_E;
+static gbcycles_t ld_a_e(Gameboy *gb){             // 0x7B
+    // REG_A = REG_E;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_h(){             // 0x7C
-    REG_A = REG_H;
+static gbcycles_t ld_a_h(Gameboy *gb){             // 0x7C
+    // REG_A = REG_H;
     return MCYCLE_1;
 }
 
-static opcycles_t ld_a_l(){             // 0x7D
-    REG_A = REG_L;
+static gbcycles_t ld_a_l(Gameboy *gb){             // 0x7D
+    // REG_A = REG_L;
     return MCYCLE_1;
 }
 
-
-static opcycles_t or_c(){              // 0xB1
-    OR_SET_FLAGS(REG_A, REG_C);
+static gbcycles_t or_c(Gameboy *gb){              // 0xB1
+    // OR_SET_FLAGS(REG_A, REG_C);
     return MCYCLE_1;
 }
 
-static opcycles_t pop_bc(){            // 0xC1
-    REG_C = READ_MEM(REG_SP);
-    REG_B = READ_MEM(REG_SP+1);
-    REG_SP += 2;
+static gbcycles_t pop_bc(Gameboy *gb){            // 0xC1
+    // REG_C = READ_MEM(REG_SP);
+    // REG_B = READ_MEM(REG_SP+1);
+    // REG_SP += 2;
     return MCYCLE_3;
 }
 
-static opcycles_t jp_nz_nn(){          // 0xC2
-        if (!FLAG_Z_IS_SET()){
-            REG_PC = READ_NEXT_WORD()-3;
-            return MCYCLE_4;
-        }
-        return MCYCLE_3;
+static gbcycles_t jp_nz_nn(Gameboy *gb){          // 0xC2
+    // if (!FLAG_Z_IS_SET()){
+    //     REG_PC = READ_NEXT_WORD()-3;
+    //     return MCYCLE_4;
+    // }
+    return MCYCLE_3;
 }
 
-static opcycles_t jp_nn(){              // 0xC3
-    // Adjust PC to account for REG_PC being incremented on return
-    REG_PC = READ_NEXT_WORD()-3;
+static gbcycles_t jp_nn(Gameboy *gb){              // 0xC3
+    // REG_PC = READ_NEXT_WORD()-3;
     return MCYCLE_4;
 }
 
-static opcycles_t call_nz_nn(){        // 0xC4
-    if (!FLAG_Z_IS_SET()){
-        WRITE_MEM(REG_SP-1, (REG_PC+3) >> 8);
-        WRITE_MEM(REG_SP-2, (REG_PC+3) & 0xFF);
-        REG_SP -= 2;
-        REG_PC = READ_NEXT_WORD()-3;
-        // dump_registers();
-        // exit(0);
-        return MCYCLE_6;
-    }
+static gbcycles_t call_nz_nn(Gameboy *gb){        // 0xC4
+    // if (!FLAG_Z_IS_SET()){
+    //     WRITE_MEM(REG_SP-1, (REG_PC+3) >> 8);
+    //     WRITE_MEM(REG_SP-2, (REG_PC+3) & 0xFF);
+    //     REG_SP -= 2;
+    //     REG_PC = READ_NEXT_WORD()-3;
+    //     return MCYCLE_6;
+    // }
     return MCYCLE_3;
 }
 
-static opcycles_t push_bc(){            // 0xC5
-    WRITE_MEM(REG_SP-1, REG_B);
-    WRITE_MEM(REG_SP-2, REG_C);
-    REG_SP -= 2;
+static gbcycles_t push_bc(Gameboy *gb){            // 0xC5
+    // WRITE_MEM(REG_SP-1, REG_B);
+    // WRITE_MEM(REG_SP-2, REG_C);
+    // REG_SP -= 2;
     return MCYCLE_4;
 }
 
-static opcycles_t ret(){                // 0xC9
-    REG_PC = READ_MEM(REG_SP+1) << 8 | READ_MEM(REG_SP);
-    REG_PC--;
-    REG_SP += 2;
+static gbcycles_t ret(Gameboy *gb){                // 0xC9
+    // REG_PC = READ_MEM(REG_SP+1) << 8 | READ_MEM(REG_SP);
+    // REG_PC--;
+    // REG_SP += 2;
     return MCYCLE_4;
 }
 
-static opcycles_t call_nn(){            // 0xCD
-    WRITE_MEM(REG_SP-1, (REG_PC+3) >> 8);
-    WRITE_MEM(REG_SP-2, (REG_PC+3) & 0xFF);
-    REG_SP -= 2;
-    REG_PC = READ_NEXT_WORD()-3;
+static gbcycles_t call_nn(Gameboy *gb){            // 0xCD
+    // WRITE_MEM(REG_SP-1, (REG_PC+3) >> 8);
+    // WRITE_MEM(REG_SP-2, (REG_PC+3) & 0xFF);
+    // REG_SP -= 2;
+    // REG_PC = READ_NEXT_WORD()-3;
     return MCYCLE_6;
 }
 
-static opcycles_t ldh_mem_n_a(){        // 0xE0
-    WRITE_MEM(0xFF00 + READ_NEXT_BYTE(), REG_A);
+static gbcycles_t ldh_mem_n_a(Gameboy *gb){        // 0xE0
+    // WRITE_MEM(0xFF00 + READ_NEXT_BYTE(), REG_A);
     return MCYCLE_3;
 }
 
-static opcycles_t pop_hl(){             // 0xE1
-    REG_H = READ_MEM(REG_SP+1);
-    REG_L = READ_MEM(REG_SP);
-    REG_SP += 2;
+static gbcycles_t pop_hl(Gameboy *gb){             // 0xE1
+    // REG_H = READ_MEM(REG_SP+1);
+    // REG_L = READ_MEM(REG_SP);
+    // REG_SP += 2;
     return MCYCLE_3;
 }
 
-static opcycles_t push_hl(){             // 0xE5
-    WRITE_MEM(REG_SP-1, REG_H);
-    WRITE_MEM(REG_SP-2, REG_L);
-    REG_SP -= 2;
+static gbcycles_t push_hl(Gameboy *gb){             // 0xE5
+    // WRITE_MEM(REG_SP-1, REG_H);
+    // WRITE_MEM(REG_SP-2, REG_L);
+    // REG_SP -= 2;
     return MCYCLE_4;
 }
 
-static opcycles_t ld_mm_nn_a(){         // 0xEA
-    WRITE_MEM(READ_NEXT_WORD(), REG_A);
+static gbcycles_t ld_mm_nn_a(Gameboy *gb){         // 0xEA
+    // WRITE_MEM(READ_NEXT_WORD(), REG_A);
     return MCYCLE_4;
 }
 
-static opcycles_t and_n(){             // 0xE6
-    AND_SET_FLAGS(REG_A, READ_NEXT_BYTE());
+static gbcycles_t and_n(Gameboy *gb){             // 0xE6
+    // AND_SET_FLAGS(REG_A, READ_NEXT_BYTE());
     return MCYCLE_2;
 }
 
-static opcycles_t di(){                 // 0xF3
-    IE = 0x00;
+static gbcycles_t di(Gameboy *gb){                 // 0xF3
+    // IE = 0x00;
     return MCYCLE_1;
 }
 
-static opcycles_t pop_af(){             // 0xF1
-    REG_A = READ_MEM(REG_SP+1);
-    REG_F = READ_MEM(REG_SP);
-    REG_SP += 2;
+static gbcycles_t pop_af(Gameboy *gb){             // 0xF1
+    // REG_A = READ_MEM(REG_SP+1);
+    // REG_F = READ_MEM(REG_SP);
+    // REG_SP += 2;
     return MCYCLE_3;
 }
 
-static opcycles_t push_af(){             // 0xF5
-    WRITE_MEM(REG_SP-1, REG_A);
-    WRITE_MEM(REG_SP-2, REG_F);
-    REG_SP -= 2;    
+static gbcycles_t push_af(Gameboy *gb){             // 0xF5
+    // WRITE_MEM(REG_SP-1, REG_A);
+    // WRITE_MEM(REG_SP-2, REG_F);
+    // REG_SP -= 2;    
     return MCYCLE_4;
 }
 
-static opcycles_t ld_hl_sp_i8(){        // 0xF8
-    uint8_t value = READ_NEXT_BYTE();
-    REG_H = U8((REG_SP + i8(value)) >> 8);
-    REG_L = U8((REG_SP + i8(value)) & 0xFF);
+static gbcycles_t ld_hl_sp_i8(Gameboy *gb){        // 0xF8
+    // uint8_t value = READ_NEXT_BYTE();
+    // REG_H = U8((REG_SP + i8(value)) >> 8);
+    // REG_L = U8((REG_SP + i8(value)) & 0xFF);
     return MCYCLE_3;
-
 }
 
-static opcycles_t ld_sp_hl(){           // 0xF9
-    REG_SP = (address_t)HL();
+static gbcycles_t ld_sp_hl(Gameboy *gb){           // 0xF9
+    // REG_SP = (address_t)HL();
     return MCYCLE_2;
 }
 
-static opcycles_t ldh_a_n(){             // 0xF0
-    REG_A = READ_MEM(0xFF00 + READ_NEXT_BYTE());
+static gbcycles_t ldh_a_n(Gameboy *gb){             // 0xF0
+    // REG_A = READ_MEM(0xFF00 + READ_NEXT_BYTE());
     return MCYCLE_3;
 }
 
-static opcycles_t ld_a_mem_nn(){        // 0xFA
-    REG_A = READ_MEM(READ_NEXT_WORD());
+static gbcycles_t ld_a_mem_nn(Gameboy *gb){        // 0xFA
+    // REG_A = READ_MEM(READ_NEXT_WORD());
     return MCYCLE_4;
 }
 
-static opcycles_t cp_n(){               // 0xFE
-    CP_SET_FLAGS(REG_A, READ_NEXT_BYTE());
+static gbcycles_t cp_n(Gameboy *gb){               // 0xFE
+    // CP_SET_FLAGS(REG_A, READ_NEXT_BYTE());
     return MCYCLE_2;
 }
 
-static opcycles_t rst_38(){             // 0xFF
-    log_info("pch: %02X, pcl: %02X", (REG_PC+1) >> 8, (REG_PC+1) & 0xFF);
-    WRITE_MEM(REG_SP-1, (REG_PC+1) >> 8);
-    WRITE_MEM(REG_SP-2, (REG_PC+1) & 0xFF);
-    REG_SP -= 2;
-    REG_PC = 0x0038-1;
+static gbcycles_t rst_38(Gameboy *gb){             // 0xFF
+    // log_info("pch: %02X, pcl: %02X", (REG_PC+1) >> 8, (REG_PC+1) & 0xFF);
+    // WRITE_MEM(REG_SP-1, (REG_PC+1) >> 8);
+    // WRITE_MEM(REG_SP-2, (REG_PC+1) & 0xFF);
+    // REG_SP -= 2;
+    // REG_PC = 0x0038-1;
     return MCYCLE_4;
 }
-
 
 opcode_def_t *opcodes[512] = {
     [0x00] = &nop,

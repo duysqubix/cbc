@@ -1,10 +1,12 @@
 CC = gcc
-CFLAGS = -I./Include -Wall -Wextra -g --std=c11 -O3
+CFLAGS = -I./src -Wall -Wextra -g --std=c11
 ifeq ($(DEBUG),1)
     CFLAGS += -O0
 else
     CFLAGS += -O3
 endif
+
+
 LDFLAGS = -lSDL2 -lSDL2_ttf
 SRCDIR = src
 OBJDIR = obj
@@ -24,7 +26,6 @@ sandbox: $(SANDBOX_SRC)
 
 rom:
 	make -C default_rom
-
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
