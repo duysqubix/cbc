@@ -437,6 +437,33 @@ static gbcycles_t ld_a_mem_hlp(Gameboy *gb){       // 0x2A
     return MCYCLE_2;
 }
 
+static gbcycles_t dec_hl(Gameboy *gb){            // 0x2B
+    if(gb->l == 0x00){
+        gb->l--;
+        gb->h--;
+    }else{ 
+        gb->l--;
+    }
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+static gbcycles_t inc_l(Gameboy *gb){            // 0x2C
+    gb->l++;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+static gbcycles_t dec_l(Gameboy *gb){            // 0x2D
+    gb->l--;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+
+
+
+
 static gbcycles_t ld_sp_nn(Gameboy *gb){           // 0x31
     uint16_t value = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
     gb->sp = value;
@@ -497,6 +524,13 @@ static gbcycles_t ld_l_e(Gameboy *gb){             // 0x6B
     gb->l = gb->e;
     gb->pc++;
     return MCYCLE_1;
+}
+
+static gbcycles_t ld_mem_hl_a(Gameboy *gb){       // 0x77
+    uint16_t address = (uint16_t)(gb->h) << 8 | gb->l;
+    gb->write(gb, address, gb->a);
+    gb->pc++;
+    return MCYCLE_2;
 }
 
 static gbcycles_t ld_a_b(Gameboy *gb){             // 0x78
@@ -796,9 +830,9 @@ opcode_def_t *opcodes[512] = {
     [0x28] = &jr_z_i8,
     [0x29] = &add_hl_hl,
     [0x2A] = &ld_a_mem_hlp,
-    [0x2B] = NULL,
-    [0x2C] = NULL,
-    [0x2D] = NULL,
+    [0x2B] = &dec_hl,
+    [0x2C] = &inc_l,
+    [0x2D] = &dec_l,
     [0x2E] = NULL,
     [0x2F] = NULL,
     [0x30] = NULL,
@@ -872,7 +906,7 @@ opcode_def_t *opcodes[512] = {
     [0x74] = NULL,
     [0x75] = NULL,
     [0x76] = NULL,
-    [0x77] = NULL,
+    [0x77] = &ld_mem_hl_a,
     [0x78] = &ld_a_b,
     [0x79] = &ld_a_c,
     [0x7A] = &ld_a_d,

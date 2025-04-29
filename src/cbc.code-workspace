@@ -5,9 +5,6 @@
 		},
 		{
 			"path": "../../gobc"
-		},
-		{
-			"path": "../../cbc_old"
 		}
 	],
 	"settings": {

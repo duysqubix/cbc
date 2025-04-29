@@ -15,8 +15,9 @@ static char * const OPCODE_NAMES[512];
 static FILE *log_file = NULL;
 
 Gameboy *gameboy_new(const char *rom_filename){
-    log_file = fopen("gameboy.log", "w");
-    log_add_fp(log_file, get_log_level());
+    // log_file = fopen("gameboy.log", "w");
+    // log_add_fp(log_file, get_log_level());
+    
     Gameboy *gb = (Gameboy *)malloc(sizeof(Gameboy));
     if (!gb){
         return NULL;

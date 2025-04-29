@@ -221,27 +221,3 @@ cleanup:
 
     return 0;
 }
-
-// int main(int argc, char *argv[]){
-//     if (argc != 2){
-//         log_error("Usage: %s <rom_file>", argv[0]);
-//         return 1;
-//     }
-
-//     logging_init();
-
-//     Gameboy *gb = gameboy_new(argv[1]);
-//     if (!gb){
-//         log_error("Failed to create Gameboy");
-//         return 1;
-//     }
-
-//     GameboyState state = gameboy_run_until_complete(gb);
-//     if (state == GAMEBOY_ERROR){
-//         log_error("Error: Gameboy state is error");
-//         gb->free(gb);
-//         return 1;
-//     }
-//     gb->free(gb);
-//     return 0;
-// }
