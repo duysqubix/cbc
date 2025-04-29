@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../gobc"
+		},
+		{
+			"path": "../../cbc_old"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"random": "c",
+			"time.h": "c",
+			"gameboy.h": "c",
+			"opcodes.h": "c",
+			"cart.h": "c"
+		}
+	}
+}

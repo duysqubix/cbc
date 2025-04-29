@@ -1,68 +1,197 @@
-#include "defs.h"
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "gameboy.h"
+#include "log.h"
+#include "opcodes.h"
+static void gameboy_free(Gameboy *self);
+static uint8_t gameboy_read(Gameboy *self, uint16_t address);
+static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value);
+static gbcycles_t gameboy_tick(Gameboy *self);
+static void dump_registers(Gameboy *gb, uint8_t opcode);
 
-uint8_t DISPLAY[DISPLAY_WIDTH*DISPLAY_HEIGHT];
-uint8_t ROM[MAX_ROM_BANKS*ROM_BANK_SIZE];
-uint8_t WRAM[MAX_RAM_BANKS*RAM_BANK_SIZE];
-uint8_t SRAM[MAX_RAM_BANKS*RAM_BANK_SIZE];
-uint8_t VRAM[MAX_VRAM_BANKS*RAM_BANK_SIZE];
-uint8_t OAM[0x9F];
-uint8_t IO [0x7F];
-uint8_t HRAM[0x7E];
-uint8_t IE;
+static char * const OPCODE_NAMES[512];
 
-uint16_t REG_SP;
-uint16_t REG_PC;
-uint8_t  REG_F;
-uint8_t  REG_A;
-uint8_t  REG_B;
-uint8_t  REG_C;
-uint8_t  REG_D;
-uint8_t  REG_E;
-uint8_t  REG_H;
-uint8_t  REG_L;
+static FILE *log_file = NULL;
 
-uint8_t ROM_CURRENT_BANK;
-uint8_t VRAM_CURRENT_BANK;
-uint8_t SRAM_CURRENT_BANK;
-uint8_t WRAM_CURRENT_BANK;
+Gameboy *gameboy_new(const char *rom_filename){
+    log_file = fopen("gameboy.log", "w");
+    log_add_fp(log_file, get_log_level());
+    Gameboy *gb = (Gameboy *)malloc(sizeof(Gameboy));
+    if (!gb){
+        return NULL;
+    }
 
-uint8_t const OPCODE_LENGTH[512] = {
-	1, 3, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 2, 1, // 0x00-0x0F
-	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x10-0x1F
-	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x20-0x2F
-	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x30-0x3F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x40-0x4F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x50-0x5F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x60-0x6F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x70-0x7F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x80-0x8F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x90-0x9F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xA0-0xAF
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xB0-0xBF
-	1, 1, 3, 3, 3, 1, 2, 1, 1, 1, 3, 1, 3, 3, 2, 1, // 0xC0-0xCF
-	1, 1, 3, 0, 3, 1, 2, 1, 1, 1, 3, 0, 3, 0, 2, 1, // 0xD0-0xDF
-	2, 1, 1, 0, 0, 1, 2, 1, 2, 1, 3, 0, 0, 0, 2, 1, // 0xE0-0xEF
-	2, 1, 1, 1, 0, 1, 2, 1, 2, 1, 3, 1, 0, 0, 2, 1, // 0xF0-0xFF
-	// CB prefix instructions do not take any arguments
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB00-0xCB0F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB10-0xCB1F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB20-0xCB2F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB30-0xCB3F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB40-0xCB4F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB50-0xCB5F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB60-0xCB6F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB70-0xCB7F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB80-0xCB8F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB90-0xCB9F
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBA0-0xCBAF
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBB0-0xCBBF
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBC0-0xCBCF
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBD0-0xCBDF
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBE0-0xCBEF
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1  // 0xCBF0-0xCBFF
-};
+    Cartridge *cart = new_cartridge();
+    
+    if(!cart->load_rom(cart, rom_filename)){
+        log_error("Failed to load ROM: %s", rom_filename);
+        gameboy_free(gb);
+        return NULL;
+    }
 
-char * const OPCODE_NAMES[512] = {
+    gb->cartridge = cart;
+
+    if (!gb->cartridge){
+        gameboy_free(gb);
+        return NULL;
+    }
+
+
+    // assign public methods 
+    gb->free = gameboy_free;
+    gb->read = gameboy_read;
+    gb->write = gameboy_write;
+    gb->tick = gameboy_tick;
+
+    // set registers to initial values 
+
+    gb->a = 0x01;
+    gb->f = 0xb0;
+    gb->b = 0x00;
+    gb->c = 0x13;
+    gb->d = 0x00;
+    gb->e = 0xd8;
+    gb->h = 0x01;
+    gb->l = 0x4d;
+    gb->pc = 0x0100;
+    gb->sp = 0xfffe;
+
+    // randomize memory
+    for(int i=_SRAM; i<_SRAM+0x1FFF; i++){
+        gb->memory[i] = rand() % 256;
+    }
+
+    return gb;
+}
+
+static void gameboy_free(Gameboy *self){
+    if (self->cartridge){
+        log_trace("Freeing Cartridge");
+        self->cartridge->free(self->cartridge);
+    }
+
+    if (self){
+        log_trace("Freeing Gameboy");
+        free(self);
+    }
+
+    if (log_file){
+        fclose(log_file);
+    }
+}
+
+static gbcycles_t gameboy_tick(Gameboy *self){
+    gbcycles_t  cycles = 0;
+    size_t      offset = 0;
+    uint8_t opcode = self->read(self, self->pc);
+
+    uint16_t prev_pc = self->pc;
+    uint16_t prev_sp = self->sp;
+
+    if (opcode == 0xCB){
+        self->pc++;
+        opcode = self->read(self, self->pc);
+        offset = 0x100;
+    }
+    opcode_def_t *op = opcodes[opcode + offset];
+    if (!op){
+        log_error("Invalid opcode: %02X", opcode);
+        return 0xFFFFFFFF;
+    }
+    dump_registers(self, opcode+offset);
+    cycles += op(self);
+
+
+    if (!self->halted && (prev_pc == self->pc) && (prev_sp == self->sp) && !self->is_stuck){
+        log_error("Gameboy is stuck at PC: %04X, SP: %04X", self->pc, self->sp);
+        self->is_stuck = 1;
+    }
+    // tick the cpu 
+    // tick the cartridge 
+    // tick the timer 
+    // tick the lcd 
+    // handle interrupts
+    // getchar();
+    return cycles;
+}
+
+
+static uint8_t gameboy_read(Gameboy *self, uint16_t address){
+    Cartridge *cart = self->cartridge;
+
+    switch(address){
+        case 0x0000 ... 0x7FFF:
+            return cart->read(cart, address);
+        case 0xA000 ... 0xBFFF:
+            return cart->read(cart, address);
+
+        case 0xE000 ... 0xFDFF:
+            return self->memory[address - 0xE000];
+        
+        case 0xFFFF:
+            return self->ie;
+
+        default:
+            if (address == _IO_LY){
+                return 0x90;
+            }
+            return self->memory[address];
+    }
+}
+
+static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value){
+    Cartridge *cart = self->cartridge;
+
+    switch(address){
+        case 0x0000 ... 0x7FFF:
+            cart->write(cart, address, value);
+            break;
+        case 0xA000 ... 0xBFFF:
+            cart->write(cart, address, value);
+            break;
+        case 0xE000 ... 0xFDFF:
+            self->memory[address - 0xE000] = value;
+            break;
+        case 0xFFFF:
+            self->ie = value;
+            break;
+        default:
+            self->memory[address] = value;
+            break;
+    }
+}
+
+static void dump_registers(Gameboy *gb, uint8_t opcode){
+    if (get_log_level() > LOG_TRACE){return;}
+
+    const char *str = 
+    "ROM%02X:%04X\t%-20s BC:%04X DE:%04X HL:%04X AF:%04X SP:%04X PC:%04X";
+
+    uint16_t af      = (uint16_t)(gb->a << 8) | gb->f;
+    uint16_t bc      = (uint16_t)(gb->b << 8) | gb->c;
+    uint16_t de      = (uint16_t)(gb->d << 8) | gb->e;
+    uint16_t hl      = (uint16_t)(gb->h << 8) | gb->l;
+    uint8_t bank     = gb->cartridge->rom_bank_select;
+    
+    if (gb->pc < 0x4000){
+        bank = 0;
+    }
+
+    log_trace(str, 
+        bank,
+        gb->pc,
+        OPCODE_NAMES[opcode],
+        bc, de, hl, af, gb->sp, gb->pc
+    );
+
+    // log_debug(str, gb->a, (gb->f >> 4), gb->b, gb->c, gb->d, gb->e, gb->h, gb->l, gb->pc, gb->sp,
+    //     gb->read(gb, gb->pc-2), gb->read(gb, gb->pc-1), opcode, gb->read(gb, gb->pc+1), gb->read(gb, gb->pc+2),
+    //     OPCODE_NAMES[opcode]);
+}
+
+
+static char * const OPCODE_NAMES[512] = {
 	"NOP", "LD BC, d16", "LD (BC), A", "INC BC", "INC B", "DEC B", "LD B, d8", "RLCA", "LD (a16), SP", "ADD HL, BC", "LD A, (BC)", "DEC BC", "INC C", "DEC C", "LD C, d8", "RRCA",
 	"STOP 0", "LD DE, d16", "LD (DE), A", "INC DE", "INC D", "DEC D", "LD D, d8", "RLA", "JR r8", "ADD HL, DE", "LD A, (DE)", "DEC DE", "INC E", "DEC E", "LD E, d8", "RRA",
 	"JR NZ, r8", "LD HL, d16", "LD (HL+), A", "INC HL", "INC H", "DEC H", "LD H, d8", "DAA", "JR Z, r8", "ADD HL, HL", "LD A, (HL+)", "DEC HL", "INC L", "DEC L", "LD L, d8", "CPL",
