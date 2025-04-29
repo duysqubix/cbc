@@ -15,8 +15,12 @@ static char * const OPCODE_NAMES[512];
 static FILE *log_file = NULL;
 
 Gameboy *gameboy_new(const char *rom_filename){
-    // log_file = fopen("gameboy.log", "w");
-    // log_add_fp(log_file, get_log_level());
+
+    if (gflags.trace_file){
+        gflags.trace_state = 1;
+        log_file = fopen(gflags.trace_file, "w");
+        log_add_fp(log_file, get_log_level());
+    }
     
     Gameboy *gb = (Gameboy *)malloc(sizeof(Gameboy));
     if (!gb){
@@ -100,7 +104,18 @@ static gbcycles_t gameboy_tick(Gameboy *self){
         log_error("Invalid opcode: %02X", opcode);
         return 0xFFFFFFFF;
     }
-    dump_registers(self, opcode+offset);
+    
+    if ((gflags.step_at.address == self->pc || gflags.step_at.enabled) && get_log_level() <= LOG_TRACE){
+        gflags.trace_state = 0;
+        gflags.step_at.enabled = true;
+        dump_registers(self, opcode+offset);
+        getchar();
+    }
+
+    if (gflags.trace_state){
+        dump_registers(self, opcode+offset);
+    }
+
     cycles += op(self);
 
 
@@ -108,6 +123,8 @@ static gbcycles_t gameboy_tick(Gameboy *self){
         log_error("Gameboy is stuck at PC: %04X, SP: %04X", self->pc, self->sp);
         self->is_stuck = 1;
     }
+
+
     // tick the cpu 
     // tick the cartridge 
     // tick the timer 
@@ -164,8 +181,6 @@ static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value){
 }
 
 static void dump_registers(Gameboy *gb, uint8_t opcode){
-    if (get_log_level() > LOG_TRACE){return;}
-
     const char *str = 
     "ROM%02X:%04X\t%-20s BC:%04X DE:%04X HL:%04X AF:%04X SP:%04X PC:%04X";
 

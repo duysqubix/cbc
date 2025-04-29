@@ -7,7 +7,16 @@
 #include <stdlib.h>
 
 #include "log.h"
+#include "argparse.h"
 #include "gameboy.h"
+
+gflags_t gflags;
+
+static void render(SDL_Renderer* renderer, SDL_Texture* texture, Gameboy *gb);
+static void handle_input(int* running);
+static void update_emulator_state(Gameboy *gb, int *running);
+static void initialize_sdl(SDL_Window** window, SDL_Renderer** renderer, SDL_Texture** texture);
+
 
 void logging_init(){
     const char *log_level = getenv("LOG_LEVEL");
@@ -28,13 +37,83 @@ void logging_init(){
 }
 
 
-static struct option long_options[] ={
-    {"debug", required_argument, 0, 'd'},
-    {0, 0, 0, 0}
-};
+void parse_flags(int argc, const char **argv){
+    const char *const usages[] = {
+        "basic [options] [[--] args]", 
+        "basic [options]",
+        NULL
+    };
+
+    const char *step_at_str = NULL;
 
 
-// Emulator state structure
+    struct argparse_option options[] = {
+        OPT_HELP(),
+        OPT_STRING('a', "step-at", &step_at_str, "Step at specific address", NULL, 0, 0),
+        OPT_BOOLEAN('t', "trace", &gflags.trace_state, "Print each instruction executed", NULL, 0, 0),
+        OPT_STRING('f', "trace-file", &gflags.trace_file, "File to write trace to", NULL, 0, 0),
+        OPT_END()
+    };
+
+    struct argparse argparse;
+    argparse_init(&argparse, options, usages, 0);
+    argparse_describe(&argparse, "CBC - Gameboy Emulator", NULL);
+    argc = argparse_parse(&argparse, argc, argv);
+
+    if(step_at_str){
+        gflags.step_at.address = (uint16_t)strtol(step_at_str, NULL, 16);
+    }
+}
+
+int main(int argc, const char* argv[]) {
+    parse_flags(argc, argv);
+    
+    logging_init();
+
+    SDL_Window* window = NULL;
+    SDL_Renderer* renderer = NULL;
+    SDL_Texture* texture = NULL;
+    int running = 1;
+
+    // Setup SDL
+    initialize_sdl(&window, &renderer, &texture);
+
+    // Setup Emulator 
+    Gameboy *gb = gameboy_new(argv[0]);
+
+    if(!gb){
+        log_error("Failed to create Gameboy instance");
+        goto cleanup;
+    }
+
+    log_info("Gameboy created successfully");
+
+    // Main game loop
+    while (running) {
+        uint32_t start_time = SDL_GetTicks();
+
+        handle_input(&running);
+        update_emulator_state(gb, &running);
+        render(renderer, texture, gb);
+
+        // Cap frame rate to ~60 FPS
+        uint32_t end_time = SDL_GetTicks();
+        uint32_t frame_time = end_time - start_time;
+        if (frame_time < 16) { // 16 ms ≈ 60 FPS
+            SDL_Delay(16 - frame_time);
+        }
+    }
+
+cleanup:
+    // Cleanup
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
+}
+
 
 // Initialize SDL, window, renderer, and texture
 void initialize_sdl(SDL_Window** window, SDL_Renderer** renderer, SDL_Texture** texture) {
@@ -153,71 +232,4 @@ void render(SDL_Renderer* renderer, SDL_Texture* texture, Gameboy *gb) {
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL); // Scales to window size
     SDL_RenderPresent(renderer);
-}
-
-void parse_flags(int *argc, char ***argv){
-    int c;
-    int option_index = 0;
-    while((c = getopt_long(*argc, *argv, "d:", long_options, &option_index)) != -1){
-        switch (c){
-            default:
-                break;
-        }
-    }
-    *argc -= optind;
-    *argv += optind;
-}
-
-
-int main(int argc, char* argv[]) {
-
-    if(argc < 2){
-        log_error("Usage: <rom_file> <optional flags>");
-        return 1;
-    }
-
-    logging_init();
-
-    SDL_Window* window = NULL;
-    SDL_Renderer* renderer = NULL;
-    SDL_Texture* texture = NULL;
-    int running = 1;
-
-    // Setup SDL
-    initialize_sdl(&window, &renderer, &texture);
-
-    // Setup Emulator 
-    Gameboy *gb = gameboy_new(argv[1]);
-
-    if(!gb){
-        log_error("Failed to create Gameboy instance");
-        goto cleanup;
-    }
-
-    log_info("Gameboy created successfully");
-
-    // Main game loop
-    while (running) {
-        uint32_t start_time = SDL_GetTicks();
-
-        handle_input(&running);
-        update_emulator_state(gb, &running);
-        render(renderer, texture, gb);
-
-        // Cap frame rate to ~60 FPS
-        uint32_t end_time = SDL_GetTicks();
-        uint32_t frame_time = end_time - start_time;
-        if (frame_time < 16) { // 16 ms ≈ 60 FPS
-            SDL_Delay(16 - frame_time);
-        }
-    }
-
-cleanup:
-    // Cleanup
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-
-    return 0;
 }

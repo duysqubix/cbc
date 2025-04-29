@@ -66,6 +66,16 @@ typedef enum GameboyState {
 }GameboyState;
 
 
+typedef struct {
+    struct { uint16_t address; uint8_t enabled;} step_at;
+    uint8_t trace_state;
+    const char *trace_file;
+
+} gflags_t;
+
+extern gflags_t gflags;
+
+
 extern Gameboy *gameboy_new(const char *rom_filename);
 extern GameboyState gameboy_run_until_complete(Gameboy *gb);
 #endif
