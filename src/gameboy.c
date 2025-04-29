@@ -11,6 +11,8 @@ static gbcycles_t gameboy_tick(Gameboy *self);
 static void dump_registers(Gameboy *gb, uint8_t opcode);
 
 static char * const OPCODE_NAMES[512];
+static uint8_t const OPCODE_LENGTH[512];
+
 static FILE *log_file = NULL;
 
 Gameboy *gameboy_new(const char *rom_filename){
@@ -181,7 +183,8 @@ static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value){
 
 static void dump_registers(Gameboy *gb, uint8_t opcode){
     const char *str = 
-    "ROM%02X:%04X\t%-20s BC:%04X DE:%04X HL:%04X AF:%04X SP:%04X PC:%04X";
+    "ROM%02X:%04X\t%-20s BC:%04X DE:%04X HL:%04X AF:%04X SP:%04X PC:%04X"
+    "| %02X %02X [%02X] %02X %02X | SP:%02X SP-1:%02X" ;
 
     uint16_t af      = (uint16_t)(gb->a << 8) | gb->f;
     uint16_t bc      = (uint16_t)(gb->b << 8) | gb->c;
@@ -197,12 +200,11 @@ static void dump_registers(Gameboy *gb, uint8_t opcode){
         bank,
         gb->pc,
         OPCODE_NAMES[opcode],
-        bc, de, hl, af, gb->sp, gb->pc
+        bc, de, hl, af, gb->sp, gb->pc,
+        gb->read(gb, gb->pc-2), gb->read(gb, gb->pc-1), opcode, gb->read(gb, gb->pc+1), gb->read(gb, gb->pc+2),
+        gb->read(gb, gb->sp), gb->read(gb, gb->sp-1)
     );
 
-    // log_debug(str, gb->a, (gb->f >> 4), gb->b, gb->c, gb->d, gb->e, gb->h, gb->l, gb->pc, gb->sp,
-    //     gb->read(gb, gb->pc-2), gb->read(gb, gb->pc-1), opcode, gb->read(gb, gb->pc+1), gb->read(gb, gb->pc+2),
-    //     OPCODE_NAMES[opcode]);
 }
 
 
@@ -240,4 +242,40 @@ static char * const OPCODE_NAMES[512] = {
 	"SET 2, B", "SET 2, C", "SET 2, D", "SET 2, E", "SET 2, H", "SET 2, L", "SET 2, (HL)", "SET 2, A", "SET 3, B", "SET 3, C", "SET 3, D", "SET 3, E", "SET 3, H", "SET 3, L", "SET 3, (HL)", "SET 3, A",
 	"SET 4, B", "SET 4, C", "SET 4, D", "SET 4, E", "SET 4, H", "SET 4, L", "SET 4, (HL)", "SET 4, A", "SET 5, B", "SET 5, C", "SET 5, D", "SET 5, E", "SET 5, H", "SET 5, L", "SET 5, (HL)", "SET 5, A",
 	"SET 6, B", "SET 6, C", "SET 6, D", "SET 6, E", "SET 6, H", "SET 6, L", "SET 6, (HL)", "SET 6, A", "SET 7, B", "SET 7, C", "SET 7, D", "SET 7, E", "SET 7, H", "SET 7, L", "SET 7, (HL)", "SET 7, A",
+};
+
+static uint8_t const OPCODE_LENGTH[512] = {
+	1, 3, 1, 1, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 2, 1, // 0x00-0x0F
+	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x10-0x1F
+	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x20-0x2F
+	2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, // 0x30-0x3F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x40-0x4F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x50-0x5F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x60-0x6F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x70-0x7F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x80-0x8F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x90-0x9F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xA0-0xAF
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xB0-0xBF
+	1, 1, 3, 3, 3, 1, 2, 1, 1, 1, 3, 1, 3, 3, 2, 1, // 0xC0-0xCF
+	1, 1, 3, 0, 3, 1, 2, 1, 1, 1, 3, 0, 3, 0, 2, 1, // 0xD0-0xDF
+	2, 1, 1, 0, 0, 1, 2, 1, 2, 1, 3, 0, 0, 0, 2, 1, // 0xE0-0xEF
+	2, 1, 1, 1, 0, 1, 2, 1, 2, 1, 3, 1, 0, 0, 2, 1, // 0xF0-0xFF
+	// CB prefix instructions do not take any arguments
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB00-0xCB0F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB10-0xCB1F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB20-0xCB2F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB30-0xCB3F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB40-0xCB4F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB50-0xCB5F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB60-0xCB6F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB70-0xCB7F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB80-0xCB8F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCB90-0xCB9F
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBA0-0xCBAF
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBB0-0xCBBF
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBC0-0xCBCF
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBD0-0xCBDF
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0xCBE0-0xCBEF
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1  // 0xCBF0-0xCBFF
 };
