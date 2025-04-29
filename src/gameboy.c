@@ -11,7 +11,6 @@ static gbcycles_t gameboy_tick(Gameboy *self);
 static void dump_registers(Gameboy *gb, uint8_t opcode);
 
 static char * const OPCODE_NAMES[512];
-
 static FILE *log_file = NULL;
 
 Gameboy *gameboy_new(const char *rom_filename){
