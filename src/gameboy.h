@@ -23,6 +23,8 @@
 #define _IO 0xFF00
 #define _HRAM 0xFF80
 
+#define _IO_SB 0xFF01
+#define _IO_SC 0xFF02
 #define _IO_LY 0xFF44
 
 

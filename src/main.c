@@ -28,7 +28,14 @@ void logging_init(){
             log_set_level(LOG_DEBUG);
         } else if (strcmp(log_level, "info") == 0) {
             log_set_level(LOG_INFO);
-        } else {
+        } 
+        else if (strcmp(log_level, "warn") == 0) {
+            log_set_level(LOG_WARN);
+        }
+        else if (strcmp(log_level, "error") == 0) {
+            log_set_level(LOG_ERROR);
+        }
+        else {
             fprintf(stderr, "Invalid log level: %s", log_level);
             exit(1);
         }
@@ -76,7 +83,7 @@ int main(int argc, const char* argv[]) {
     int running = 1;
 
     // Setup SDL
-    initialize_sdl(&window, &renderer, &texture);
+    // initialize_sdl(&window, &renderer, &texture);
 
     // Setup Emulator 
     Gameboy *gb = gameboy_new(argv[0]);
@@ -92,9 +99,9 @@ int main(int argc, const char* argv[]) {
     while (running) {
         uint32_t start_time = SDL_GetTicks();
 
-        handle_input(&running);
+        // handle_input(&running);
         update_emulator_state(gb, &running);
-        render(renderer, texture, gb);
+        // render(renderer, texture, gb);
 
         // Cap frame rate to ~60 FPS
         uint32_t end_time = SDL_GetTicks();
@@ -106,10 +113,11 @@ int main(int argc, const char* argv[]) {
 
 cleanup:
     // Cleanup
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    // gameboy_free(gb);
+    // SDL_DestroyTexture(texture);
+    // SDL_DestroyRenderer(renderer);
+    // SDL_DestroyWindow(window);
+    // SDL_Quit();
 
     return 0;
 }

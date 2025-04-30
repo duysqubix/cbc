@@ -162,6 +162,10 @@ static uint8_t gameboy_read(Gameboy *self, uint16_t address){
 static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value){
     Cartridge *cart = self->cartridge;
 
+    if (address == _IO_SC && value == 0x81){
+        printf("%c", self->read(self, _IO_SB));
+    }
+
     switch(address){
         case 0x0000 ... 0x7FFF:
             cart->write(cart, address, value);

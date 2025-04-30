@@ -45,6 +45,10 @@ static gbcycles_t inc_b(Gameboy *gb){          // 0x04
         gb->f |= FLAG_H;
     }
 
+    if(!gb->b){
+        gb->f |= FLAG_Z;
+    }
+
     return MCYCLE_1;
 }
 
@@ -136,6 +140,10 @@ static gbcycles_t inc_c(Gameboy *gb){          // 0x0C
 
     if(gb->c & 0xf == 0xf){
         gb->f |= FLAG_H;
+    }
+
+    if(!gb->c){
+        gb->f |= FLAG_Z;
     }
 
     gb->pc++;
@@ -322,6 +330,10 @@ static gbcycles_t inc_e(Gameboy *gb){              // 0x1C
         gb->f |= FLAG_H;
     }
 
+    if(!gb->e){
+        gb->f |= FLAG_Z;
+    }
+
     gb->pc++;
     return MCYCLE_1;
 }
@@ -422,6 +434,10 @@ static gbcycles_t inc_h(Gameboy *gb){             // 0x24
 
     if(gb->h & 0xf == 0xf){
         gb->f |= FLAG_H;
+    }
+
+    if(!gb->h){
+        gb->f |= FLAG_Z;
     }
 
     gb->pc++;
@@ -553,6 +569,10 @@ static gbcycles_t inc_l(Gameboy *gb){            // 0x2C
         gb->f |= FLAG_H;
     }
 
+    if(!gb->l){
+        gb->f |= FLAG_Z;
+    }
+
     gb->pc++;
     return MCYCLE_1;
 }
@@ -600,6 +620,10 @@ static gbcycles_t inc_a(Gameboy *gb){             // 0x3C
 
     if(gb->a & 0xf == 0xf){
         gb->f |= FLAG_H;
+    }
+
+    if(!gb->a){
+        gb->f |= FLAG_Z;
     }
 
     gb->pc++;
@@ -703,13 +727,22 @@ static gbcycles_t and_e(Gameboy *gb){            // 0xA3
     return MCYCLE_1;
 }
 
-static gbcycles_t xor_a(Gameboy *gb){             // 0xA9
-    uint8_t result = gb->a ^ gb->a;
+static gbcycles_t xor_c(Gameboy *gb){             // 0xAB
+    gb->a ^= gb->c;
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
 
-    if(!result){gb->f |= FLAG_Z;}
+    if(!gb->a){gb->f |= FLAG_Z;}
 
-    gb->a = result;
+    gb->pc++;
+}
+
+static gbcycles_t xor_a(Gameboy *gb){             // 0xAF
+    // uint8_t result = gb->a ^ gb->a;
+    gb->a ^= gb->a;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    gb->f |= FLAG_Z; // XOR'ing a value with itself always results in 0
+
     gb->pc++;
 }
 
@@ -752,12 +785,15 @@ static gbcycles_t jp_nn(Gameboy *gb){              // 0xC3
 
 static gbcycles_t call_nz_nn(Gameboy *gb){        // 0xC4
 
-    uint16_t address = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
     if(!(gb->f & FLAG_Z)){
-        gb->write(gb, gb->sp-1, gb->pc >> 8);
-        gb->write(gb, gb->sp-2, gb->pc & 0xFF);
+        uint16_t call_address = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
+        uint16_t sph = (gb->pc+3) >> 8;
+        uint16_t spl = (gb->pc+3) & 0xFF;
+
+        gb->write(gb, gb->sp-1, sph);
+        gb->write(gb, gb->sp-2, spl);
         gb->sp -= 2;
-        gb->pc = address;
+        gb->pc = call_address;
         return MCYCLE_6;
     }
     gb->pc += 3;
@@ -773,18 +809,25 @@ static gbcycles_t push_bc(Gameboy *gb){            // 0xC5
 }
 
 static gbcycles_t ret(Gameboy *gb){                // 0xC9
-    gb->pc = (gb->read(gb, gb->sp+1) << 8 | gb->read(gb, gb->sp))+2;
+    uint16_t sph = gb->read(gb, gb->sp+1);
+    uint16_t spl = gb->read(gb, gb->sp);
     gb->sp += 2;
-    gb->pc++;
+    gb->pc = (sph << 8) | spl;
+
     return MCYCLE_4;
 }
 
 static gbcycles_t call_nn(Gameboy *gb){            // 0xCD
-    uint16_t address = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
-    gb->write(gb, gb->sp-1, gb->pc >> 8);
-    gb->write(gb, gb->sp-2, gb->pc & 0xFF);
+
+    uint16_t call_address = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
+    uint16_t sph = (gb->pc+3) >> 8;
+    uint16_t spl = (gb->pc+3) & 0xFF;
+
+    gb->write(gb, gb->sp-1, sph);
+    gb->write(gb, gb->sp-2, spl);
     gb->sp -= 2;
-    gb->pc = address;
+    gb->pc = call_address;
+
     return MCYCLE_6;
 }
 
@@ -899,7 +942,9 @@ static gbcycles_t cp_n(Gameboy *gb){               // 0xFE
     uint16_t result = a - b;
 
     gb->f &= ~(FLAG_Z |  FLAG_H | FLAG_C);
-    gb->f |= FLAG_H;
+    gb->f |= FLAG_N;
+
+    if(!result){gb->f |= FLAG_Z;}
 
     if((a^b^result) & 0x10){gb->f |= FLAG_H;}
 
@@ -1088,13 +1133,13 @@ opcode_def_t *opcodes[512] = {
     [0xA6] = NULL,
     [0xA7] = NULL,
     [0xA8] = NULL,
-    [0xA9] = NULL,
+    [0xA9] = &xor_c,
     [0xAA] = NULL,
     [0xAB] = NULL,
     [0xAC] = NULL,
     [0xAD] = NULL,
     [0xAE] = NULL,
-    [0xAF] = NULL,
+    [0xAF] = &xor_a,
     [0xB0] = NULL,
     [0xB1] = &or_c,
     [0xB2] = NULL,
