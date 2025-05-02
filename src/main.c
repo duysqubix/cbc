@@ -14,7 +14,7 @@ gflags_t gflags;
 
 static void render(SDL_Renderer* renderer, SDL_Texture* texture, Gameboy *gb);
 static void handle_input(int* running);
-static void update_emulator_state(Gameboy *gb, int *running);
+static GameboyState update_emulator_state(Gameboy *gb);
 static void initialize_sdl(SDL_Window** window, SDL_Renderer** renderer, SDL_Texture** texture);
 
 
@@ -97,23 +97,32 @@ int main(int argc, const char* argv[]) {
 
     // Main game loop
     while (running) {
-        uint32_t start_time = SDL_GetTicks();
+        const uint64_t start_time = SDL_GetTicks64();
 
         // handle_input(&running);
-        update_emulator_state(gb, &running);
+
+        GameboyState state = update_emulator_state(gb);
+
+        if (state == GAMEBOY_ERROR){
+            log_error("Gameboy state is error");
+            running = 0;
+        }
+
         // render(renderer, texture, gb);
 
         // Cap frame rate to ~60 FPS
-        uint32_t end_time = SDL_GetTicks();
-        uint32_t frame_time = end_time - start_time;
-        if (frame_time < 16) { // 16 ms ≈ 60 FPS
-            SDL_Delay(16 - frame_time);
-        }
+        const uint64_t frame_time = SDL_GetTicks64() - start_time;
+
+        const uint64_t delay_start = SDL_GetTicks64() - frame_time;
+        while (SDL_GetTicks64() < delay_start + 16) {}
+
+        // log_trace("Tick");
     }
 
 cleanup:
     // Cleanup
     // gameboy_free(gb);
+    gb->free(gb);
     // SDL_DestroyTexture(texture);
     // SDL_DestroyRenderer(renderer);
     // SDL_DestroyWindow(window);
@@ -182,34 +191,32 @@ void handle_input(int* running) {
 }
 
 // Update emulator state (placeholder with gradient for testing)
-void update_emulator_state(Gameboy *gb, int *running) {
+GameboyState update_emulator_state(Gameboy *gb) {
     // update internal gameboy state
     // one frame is 70224 cycles
-
-    static size_t total_cycles = 0;
+    static gbcycles_t total_cycles = 0;
     static gbcycles_t cycles = 0;
-    gbcycles_t cur_cycles = 0;
     while(1){
-        cur_cycles = gb->tick(gb);
-        if (cur_cycles == 0xFFFFFFFF){
+        cycles += gb->tick(gb);
+
+        if (cycles == 0xFFFFFFFF){
             log_error("Gameboy state is error");
-            *running = 0;
-            break;
+            return GAMEBOY_ERROR;
         }
 
         if (gb->is_stuck){
-            *running = 0;
-            break;
+            log_error("Gameboy is stuck");
+            return GAMEBOY_ERROR;
         }
 
-        cycles += cur_cycles;
         if (cycles >= 70224){
             break;
         }
     }
     total_cycles += cycles;
+    // create offset for next frame 
     cycles -= 70224;
-
+    // log_warn("Total cycles: %zu", total_cycles);
     // Fill frame buffer with a gradient pattern
     for (int y = 0; y < SCREEN_HEIGHT; y++) {
         for (int x = 0; x < SCREEN_WIDTH; x++) {
@@ -232,6 +239,8 @@ void update_emulator_state(Gameboy *gb, int *running) {
     if (keystate[SDL_SCANCODE_X])     gb->buttons |= 1 << 5; // B button
     if (keystate[SDL_SCANCODE_RETURN])gb->buttons |= 1 << 6; // Start
     if (keystate[SDL_SCANCODE_LSHIFT])gb->buttons |= 1 << 7; // Select
+
+    return GAMEBOY_RUNNING;
 }
 
 // Render frame buffer to screen

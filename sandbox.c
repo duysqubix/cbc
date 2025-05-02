@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdint.h>
 int main(){
-    uint8_t a = 0xfa;
+    uint8_t a = 0x00;
 
-    printf("u8: %d, i8: %d\n", a, (int8_t)a);
+    for(int i =0; i< 256; i++){
+        printf("i: %02X\t&i: %02X\n", i, i&0xf);
+    }
     return 0;
 }

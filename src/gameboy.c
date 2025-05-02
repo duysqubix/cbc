@@ -188,7 +188,7 @@ static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value){
 static void dump_registers(Gameboy *gb, uint8_t opcode){
     const char *str = 
     "ROM%02X:%04X\t%-20s BC:%04X DE:%04X HL:%04X AF:%04X SP:%04X PC:%04X"
-    "| %02X %02X [%02X] %02X %02X | SP:%02X SP-1:%02X" ;
+    "| %02X %02X [%02X] %02X %02X | ZNHC:%04b" ;
 
     uint16_t af      = (uint16_t)(gb->a << 8) | gb->f;
     uint16_t bc      = (uint16_t)(gb->b << 8) | gb->c;
@@ -206,7 +206,7 @@ static void dump_registers(Gameboy *gb, uint8_t opcode){
         OPCODE_NAMES[opcode],
         bc, de, hl, af, gb->sp, gb->pc,
         gb->read(gb, gb->pc-2), gb->read(gb, gb->pc-1), opcode, gb->read(gb, gb->pc+1), gb->read(gb, gb->pc+2),
-        gb->read(gb, gb->sp), gb->read(gb, gb->sp-1)
+        gb->f>>4
     );
 
 }

@@ -36,35 +36,40 @@ static gbcycles_t inc_bc(Gameboy *gb){         // 0x03
 }
 
 static gbcycles_t inc_b(Gameboy *gb){          // 0x04
-    gb->b++;
-    gb->pc++;
+    uint8_t result = gb->b + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->b & 0xf == 0xf){
+    if(result == 0x00){
+        gb->f |= FLAG_Z;
+    }
+
+    if((gb->b & 0xf) == 0xf){
         gb->f |= FLAG_H;
     }
 
-    if(!gb->b){
-        gb->f |= FLAG_Z;
-    }
+    gb->b = result;
+    gb->pc++;
 
     return MCYCLE_1;
 }
 
 static gbcycles_t dec_b(Gameboy *gb){          // 0x05
-    gb->b--;
+    uint8_t result = gb->b - 1;
 
-    gb->f &= ~(FLAG_Z | FLAG_H);
-    gb->f |= FLAG_N;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->b == 0x00){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
-    if(gb->b & 0xf == 0x0f){
+    gb->f |= FLAG_N;
+
+    if((gb->b & 0xf) == 0x00){
         gb->f |= FLAG_H;
     }
+
+    gb->b = result;
 
     gb->pc++;
     return MCYCLE_1;
@@ -134,36 +139,40 @@ static gbcycles_t dec_bc(Gameboy *gb){          // 0x0B
 }
 
 static gbcycles_t inc_c(Gameboy *gb){          // 0x0C
-    gb->c++;
+    uint8_t result = gb->c + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->c & 0xf == 0xf){
-        gb->f |= FLAG_H;
-    }
-
-    if(!gb->c){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
+    if((gb->c & 0xf) == 0xf){
+        gb->f |= FLAG_H;
+    }
+
+    gb->c = result;
     gb->pc++;
+
     return MCYCLE_1;
 }
 
 static gbcycles_t dec_c(Gameboy *gb){          // 0x0D
-    gb->c--;
+    uint8_t result = gb->c - 1;
 
-    gb->f &= ~(FLAG_Z | FLAG_H);
-    gb->f |= FLAG_N;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->c == 0x00){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
-    if(gb->c & 0xf == 0x0f){
+    gb->f |= FLAG_N;
+
+    if((gb->c & 0xf) == 0x00){
         gb->f |= FLAG_H;
     }
 
+    gb->c = result;
     gb->pc++;
     return MCYCLE_1;
 }
@@ -221,32 +230,40 @@ static gbcycles_t inc_de(Gameboy *gb){             // 0x13
 }
 
 static gbcycles_t inc_d(Gameboy *gb){              // 0x14
-    gb->d++;
+    uint8_t result = gb->d + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->d & 0xf == 0xf){
+    if(result == 0x00){
+        gb->f |= FLAG_Z;
+    }
+
+    if((gb->d & 0xf) == 0xf){
         gb->f |= FLAG_H;
     }
 
+    gb->d = result;
     gb->pc++;
+
     return MCYCLE_1;
 }
 
 static gbcycles_t dec_d(Gameboy *gb){              // 0x15
-    gb->d--;
+    uint8_t result = gb->d - 1;
 
-    gb->f &= ~(FLAG_Z | FLAG_H);
-    gb->f |= FLAG_N;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->d == 0x00){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
-    if(gb->d & 0xf == 0x0f){
+    gb->f |= FLAG_N;
+
+    if((gb->d & 0xf) == 0x00){
         gb->f |= FLAG_H;
     }
 
+    gb->d = result;
     gb->pc++;
     return MCYCLE_1;
 }
@@ -322,36 +339,40 @@ static gbcycles_t dec_de(Gameboy *gb){             // 0x1B
 }
 
 static gbcycles_t inc_e(Gameboy *gb){              // 0x1C
-    gb->e++;
+    uint8_t result = gb->e + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->e & 0xf == 0xf){
-        gb->f |= FLAG_H;
-    }
-
-    if(!gb->e){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
+    if((gb->e & 0xf) == 0xf){
+        gb->f |= FLAG_H;
+    }
+
+    gb->e = result;
     gb->pc++;
+
     return MCYCLE_1;
 }
 
 static gbcycles_t dec_e(Gameboy *gb){              // 0x1D
-    gb->e--;
+    uint8_t result = gb->e - 1;
 
-    gb->f &= ~(FLAG_Z | FLAG_H);
-    gb->f |= FLAG_N;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->e == 0x00){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
-    if(gb->e & 0xf == 0x0f){
+    gb->f |= FLAG_N;
+
+    if((gb->e & 0xf) == 0x00){
         gb->f |= FLAG_H;
     }
 
+    gb->e = result;
     gb->pc++;
     return MCYCLE_1;
 }
@@ -428,36 +449,40 @@ static gbcycles_t inc_hl(Gameboy *gb){            // 0x23
 }
 
 static gbcycles_t inc_h(Gameboy *gb){             // 0x24
-    gb->h++;
+    uint8_t result = gb->h + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->h & 0xf == 0xf){
-        gb->f |= FLAG_H;
-    }
-
-    if(!gb->h){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
+    if((gb->h & 0xf) == 0xf){
+        gb->f |= FLAG_H;
+    }
+
+    gb->h = result;
     gb->pc++;
+
     return MCYCLE_1;
 }
 
 static gbcycles_t dec_h(Gameboy *gb){             // 0x25
-    gb->h--;
+    uint8_t result = gb->h - 1;
 
-    gb->f &= ~(FLAG_Z | FLAG_H);
-    gb->f |= FLAG_N;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->h == 0x00){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
-    if(gb->h & 0xf == 0x0f){
+    gb->f |= FLAG_N;
+
+    if((gb->h & 0xf) == 0x00){
         gb->f |= FLAG_H;
     }
 
+    gb->h = result;
     gb->pc++;
     return MCYCLE_1;
 }
@@ -561,42 +586,43 @@ static gbcycles_t dec_hl(Gameboy *gb){            // 0x2B
 }
 
 static gbcycles_t inc_l(Gameboy *gb){            // 0x2C
-    gb->l++;
+    uint8_t result = gb->l + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->l & 0xf == 0xf){
-        gb->f |= FLAG_H;
-    }
-
-    if(!gb->l){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
+    if((gb->l & 0xf) == 0xf){
+        gb->f |= FLAG_H;
+    }
+
+    gb->l = result;
     gb->pc++;
+
     return MCYCLE_1;
 }
 
 static gbcycles_t dec_l(Gameboy *gb){            // 0x2D
-    gb->l--;
+    uint8_t result = gb->l - 1;
 
-    gb->f &= ~(FLAG_Z | FLAG_H);
-    gb->f |= FLAG_N;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->l == 0x00){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
-    if(gb->l & 0xf == 0x0f){
+    gb->f |= FLAG_N;
+
+    if((gb->l & 0xf) == 0x00){
         gb->f |= FLAG_H;
     }
 
+    gb->l = result;
     gb->pc++;
     return MCYCLE_1;
 }
-
-
-
 
 
 static gbcycles_t ld_sp_nn(Gameboy *gb){           // 0x31
@@ -604,6 +630,22 @@ static gbcycles_t ld_sp_nn(Gameboy *gb){           // 0x31
     gb->sp = value;
     gb->pc += 3;
     return MCYCLE_3;
+}
+
+static gbcycles_t ld_hlm_a(Gameboy *gb){          // 0x32
+    uint16_t address = (uint16_t)(gb->h) << 8 | gb->l;
+
+    gb->write(gb, address, gb->a);
+
+    if(gb->l == 0x00){
+        gb->l--;
+        gb->h--;
+    }else{ 
+        gb->l--;
+    }
+
+    gb->pc++;
+    return MCYCLE_2;
 }
 
 static gbcycles_t ld_mem_hl_n(Gameboy *gb){       // 0x36
@@ -614,19 +656,21 @@ static gbcycles_t ld_mem_hl_n(Gameboy *gb){       // 0x36
 }
 
 static gbcycles_t inc_a(Gameboy *gb){             // 0x3C
-    gb->a++;
+    uint8_t result = gb->a + 1;
 
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H);
 
-    if(gb->a & 0xf == 0xf){
-        gb->f |= FLAG_H;
-    }
-
-    if(!gb->a){
+    if(result == 0x00){
         gb->f |= FLAG_Z;
     }
 
+    if((gb->a & 0xf) == 0xf){
+        gb->f |= FLAG_H;
+    }
+
+    gb->a = result;
     gb->pc++;
+
     return MCYCLE_1;
 }
 
@@ -744,6 +788,7 @@ static gbcycles_t xor_a(Gameboy *gb){             // 0xAF
     gb->f |= FLAG_Z; // XOR'ing a value with itself always results in 0
 
     gb->pc++;
+    return MCYCLE_1;
 }
 
 static gbcycles_t or_c(Gameboy *gb){              // 0xB1
@@ -1014,7 +1059,7 @@ opcode_def_t *opcodes[512] = {
     [0x2F] = NULL,
     [0x30] = NULL,
     [0x31] = &ld_sp_nn,
-    [0x32] = NULL,
+    [0x32] = &ld_hlm_a,
     [0x33] = NULL,
     [0x34] = NULL,
     [0x35] = NULL,
