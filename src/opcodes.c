@@ -771,13 +771,14 @@ static gbcycles_t and_e(Gameboy *gb){            // 0xA3
     return MCYCLE_1;
 }
 
-static gbcycles_t xor_c(Gameboy *gb){             // 0xAB
+static gbcycles_t xor_c(Gameboy *gb){             // 0xA9
     gb->a ^= gb->c;
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
 
     if(!gb->a){gb->f |= FLAG_Z;}
 
     gb->pc++;
+    return MCYCLE_1;
 }
 
 static gbcycles_t xor_a(Gameboy *gb){             // 0xAF
@@ -993,7 +994,7 @@ static gbcycles_t cp_n(Gameboy *gb){               // 0xFE
 
     if((a^b^result) & 0x10){gb->f |= FLAG_H;}
 
-    if (result & 0x100 != 0){gb->f |= FLAG_C;}    
+    if ((result & 0x100) != 0){gb->f |= FLAG_C;}    
 
     gb->pc += 2;
     return MCYCLE_2;

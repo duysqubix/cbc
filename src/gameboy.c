@@ -87,6 +87,8 @@ static void gameboy_free(Gameboy *self){
     }
 }
 
+
+
 static gbcycles_t gameboy_tick(Gameboy *self){
     gbcycles_t  cycles = 0;
     size_t      offset = 0;
