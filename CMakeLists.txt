@@ -36,13 +36,6 @@ target_link_libraries(${PROJECT_NAME}
     ${SDL2_TTF_LIBRARIES}
 )
 
-# Sandbox target
-add_executable(sandbox sandbox.c)
-target_link_libraries(sandbox
-    ${SDL2_LIBRARIES}
-    ${SDL2_TTF_LIBRARIES}
-)
-
 # Add default_rom as a subdirectory
 add_subdirectory(default_rom)
 
@@ -55,4 +48,11 @@ add_custom_target(cleanup
     COMMAND ${CMAKE_COMMAND} -E remove sandbox
     COMMAND ${CMAKE_COMMAND} -E remove ${PROJECT_NAME}
     COMMENT "Cleaning build artifacts"
+)
+
+add_custom_target(
+    sandbox_clang
+    COMMAND clang -Wall -o sandbox sandbox.c src/opcodes.c -I src/
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Building sandbox with clang"
 ) 
