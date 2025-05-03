@@ -96,15 +96,15 @@ def main():
     filename = os.environ["FILENAME"]
     bin_content= bytearray()
     for file in default_dir.glob("*.json"):
-        if file.name !=  filename:
-            continue
-        print(f"Processing {file.name}")
+        # if file.name !=  filename:
+        #     continue
+        # print(f"Processing {file.name}")
         jdata = json.loads(file.read_bytes())
         for test in jdata:
             b = parse_test(test)
             bin_content.extend(b)
             
-            # break    
+        #     break    
         # break
     Path(f"main.bin").write_bytes(bin_content)
     print(f"Wrote {len(bin_content)} bytes to main.bin")

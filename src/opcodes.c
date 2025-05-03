@@ -8,12 +8,15 @@ static gbcycles_t nop(Gameboy *gb){                            // 0x00
 }
 
 static gbcycles_t ld_bc_nn(Gameboy *gb){                       // 0x01
-    uint16_t value = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
-    printf("u16: %04X\n", value);
-    printf("b: %02X\n", value >> 8);
-    printf("c: %02X\n", value & 0xFF);
-    gb->b = value >> 8;
-    gb->c = value & 0xFF;
+    // uint16_t value = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
+    // printf("u16: %04X\n", value);
+    // printf("b: %02X\n", value >> 8);
+    // printf("c: %02X\n", value & 0xFF);
+    // gb->b = value >> 8;
+    // gb->c = value & 0xFF;
+
+    gb->b = gb->read(gb, gb->pc+2);
+    gb->c = gb->read(gb, gb->pc+1);
     gb->pc += 3;
     return MCYCLE_3;
 }
@@ -762,6 +765,61 @@ static gbcycles_t ld_a_l(Gameboy *gb){             // 0x7D
     return MCYCLE_1;
 }
 
+static gbcycles_t add_a_a(Gameboy *gb){            // 0x87
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->a;
+    uint16_t result = a + b;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    if ((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+
+    if(((a^b^result) & 0x10)){
+        gb->f |= FLAG_H;
+    }
+
+    if((result & 0x100) != 0){
+        gb->f |= FLAG_C;
+    }
+
+    gb->a = result & 0xff;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+
+static gbcycles_t adc_a_e(Gameboy *gb){           // 0x8B
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->e;
+    
+    uint16_t fc = 0;
+
+    if (gb->f & FLAG_C){
+        fc = 1;
+    }    
+
+    uint16_t result = a + b + fc;
+
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    if ((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+    
+    if((a^b^result) & 0x10){
+        gb->f |= FLAG_H;
+    }
+
+    if((result & 0x100) != 0){
+        gb->f |= FLAG_C;
+    }
+
+    gb->a = result & 0xff;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 static gbcycles_t and_e(Gameboy *gb){            // 0xA3
     uint8_t result = gb->a & gb->e;
     gb->f &= ~(FLAG_Z | FLAG_N |  FLAG_C);
@@ -1148,11 +1206,11 @@ opcode_def_t *opcodes[512] = {
     [0x84] = NULL,
     [0x85] = NULL,
     [0x86] = NULL,
-    [0x87] = NULL,
+    [0x87] = &add_a_a,
     [0x88] = NULL,
     [0x89] = NULL,
     [0x8A] = NULL,
-    [0x8B] = NULL,
+    [0x8B] = &adc_a_e,
     [0x8C] = NULL,
     [0x8D] = NULL,
     [0x8E] = NULL,

@@ -15,15 +15,24 @@ const char *bin_file = "main.bin";
 static char * const OPCODE_NAMES[512];
 
 static uint8_t gameboy_read(Gameboy *self, uint16_t address){
+    // printf("reading [%02X] from %04X\n", self->memory[address], address);
     return self->memory[address];
 }
 
 static void gameboy_write(Gameboy *self, uint16_t address, uint8_t value){
+    // printf("writing to %04X: %02X\n", address, value);
     self->memory[address] = value;
+}
+
+static void clear_memory(Gameboy *gb){
+    for(int i = 0; i < 0x10000; i++){
+        gb->memory[i] = 0;
+    }
 }
 
 
 static void load_state(Gameboy *gb, uint8_t *buffer){
+    clear_memory(gb);
     gb->a = buffer[0];
     gb->b = buffer[1];
     gb->c = buffer[2];
@@ -33,7 +42,7 @@ static void load_state(Gameboy *gb, uint8_t *buffer){
     gb->h = buffer[6];
     gb->l = buffer[7];
 
-    gb->pc = buffer[8] << 8 | buffer[9];
+    gb->pc = (buffer[8] << 8 | buffer[9])-1;
     gb->sp = buffer[10] << 8 | buffer[11];
 
     uint16_t addr1 = buffer[12] << 8 | buffer[13];
@@ -56,17 +65,20 @@ static void load_state(Gameboy *gb, uint8_t *buffer){
     gb->memory[addr5] = val5;
     gb->memory[addr6] = val6;
     
-    // printf("\nAddress1: %04X Value1: %02X\n", addr1, val1);
-    // printf("Address2: %04X Value2: %02X\n", addr2, val2);
-    // printf("Address3: %04X Value3: %02X\n", addr3, val3);
-    // printf("Address4: %04X Value4: %02X\n", addr4, val4);
-    // printf("Address5: %04X Value5: %02X\n", addr5, val5);
-    // printf("Address6: %04X Value6: %02X\n", addr6, val6);
+    // printf("\naddr1: %04X val1: %02X\n", addr1, gb->memory[addr1]);
+    // printf("addr2: %04X val2: %02X\n", addr2, gb->memory[addr2]);
+    // printf("addr3: %04X val3: %02X\n", addr3, gb->memory[addr3]);
+    // printf("addr4: %04X val4: %02X\n", addr4, gb->memory[addr4]);
+    // printf("addr5: %04X val5: %02X\n", addr5, gb->memory[addr5]);
+    // printf("addr6: %04X val6: %02X\n", addr6, gb->memory[addr6]);
+
+    // printf("--------------------------------\n");
+
 }
 
 void dump_state(Gameboy *gb){
-    printf("A: %02X B: %02X C: %02X D: %02X E: %02X F: %02X H: %02X L: %02X PC: %04X SP: %04X\n",
-           gb->a, gb->b, gb->c, gb->d, gb->e, gb->f, gb->h, gb->l, gb->pc, gb->sp);
+    printf("A: %02X B: %02X C: %02X D: %02X E: %02X F: %04b H: %02X L: %02X PC: %04X SP: %04X\n",
+           gb->a, gb->b, gb->c, gb->d, gb->e, (gb->f >> 4), gb->h, gb->l, gb->pc, gb->sp);
     for(int i = 0; i < 0x10000; i++){
         if(gb->memory[i] != 0){
             printf("Memory: [%04X] = %02X\n", i, gb->memory[i]);
@@ -137,31 +149,32 @@ int main(){
 
     Gameboy expected_gb;
 
-    for(int i = 0; i < 0x10000; i++){
-        actual_gb.memory[i] = 0;
-        expected_gb.memory[i] = 0;
-    }
-
-
+    uint8_t current_opcode = 0xFF;
     for(int i = 0; i<size; i+=0x3f){
         uint8_t opcode = buffer[i];
         uint8_t v1 = buffer[i+1];
         uint8_t v2 = buffer[i+2];
 
-        printf("Testing opcode: %02X [%s]....", opcode, OPCODE_NAMES[opcode]);
-        
+        if(opcode != current_opcode){
+            printf("Testing opcode: %02X [%s]....", opcode, OPCODE_NAMES[opcode]);
+        }
         load_state(&actual_gb, buffer + i + 3);
+        load_state(&expected_gb, buffer + i +0x21);
+
 
         opcode_def_t *op = opcodes[opcode];
         
         if(!op){
-            printf("not implemented\n");
-            continue;
+            if (opcode != current_opcode){
+                printf("not implemented\n");
+                current_opcode = opcode;
+            }
+            exit(1);
         }
 
+        // dump_state(&actual_gb);
         op(&actual_gb);
-
-        load_state(&expected_gb, buffer + i +0x21);
+        // dump_state(&actual_gb);
 
         if(!compare_states(&actual_gb, &expected_gb)){
             printf("Opcode: %02X Value: %04X\n", opcode, (uint16_t)(v1) << 8 | v2);
@@ -172,7 +185,10 @@ int main(){
             exit(1);
             // break;
         }
-        printf("done\n");
+        if (opcode != current_opcode){
+            printf("done\n");
+            current_opcode = opcode;
+        }
     }
 
     printf("Test passed\n");
