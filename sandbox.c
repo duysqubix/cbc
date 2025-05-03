@@ -151,18 +151,24 @@ int main(){
 
     uint8_t current_opcode = 0xFF;
     for(int i = 0; i<size; i+=0x3f){
-        uint8_t opcode = buffer[i];
+        uint16_t opcode = buffer[i];
+        uint16_t offset = 0;
         uint8_t v1 = buffer[i+1];
         uint8_t v2 = buffer[i+2];
 
+        if(opcode == 0xCB){
+            opcode = buffer[i+1];
+            offset = 0x100;
+        }
+
         if(opcode != current_opcode){
-            printf("Testing opcode: %02X [%s]....", opcode, OPCODE_NAMES[opcode]);
+            printf("Testing opcode: %s%02X [%s]....................", offset ? "CB " : "", opcode, OPCODE_NAMES[opcode+offset]);
         }
         load_state(&actual_gb, buffer + i + 3);
         load_state(&expected_gb, buffer + i +0x21);
 
 
-        opcode_def_t *op = opcodes[opcode];
+        opcode_def_t *op = opcodes[opcode + offset];
         
         if(!op){
             if (opcode != current_opcode){
@@ -186,7 +192,7 @@ int main(){
             // break;
         }
         if (opcode != current_opcode){
-            printf("done\n");
+            printf("passed\n");
             current_opcode = opcode;
         }
     }
