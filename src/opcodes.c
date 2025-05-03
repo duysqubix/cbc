@@ -9,6 +9,9 @@ static gbcycles_t nop(Gameboy *gb){                            // 0x00
 
 static gbcycles_t ld_bc_nn(Gameboy *gb){                       // 0x01
     uint16_t value = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
+    printf("u16: %04X\n", value);
+    printf("b: %02X\n", value >> 8);
+    printf("c: %02X\n", value & 0xFF);
     gb->b = value >> 8;
     gb->c = value & 0xFF;
     gb->pc += 3;

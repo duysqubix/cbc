@@ -6,6 +6,8 @@ byte struct per line
 0x123456789 a b c d e f h l pc sp 0x123456789 a b c d e f h l pc sp 0x987654321 (newline)
 """
 
+default_dir = Path("/home/duys/.repos/GameboyCPUTests/v2")
+
 def parse_test(test):
 
     initial = test["initial"]
@@ -86,25 +88,27 @@ def parse_test(test):
     
     
     
+import sys 
+import os 
 
 
 def main():
-    opcode_files = Path("v2/")
+    filename = os.environ["FILENAME"]
     bin_content= bytearray()
-
-    for file in opcode_files.glob("*.json"):
-        # if file.name != '01.json':
-        #     continue
+    for file in default_dir.glob("*.json"):
+        if file.name !=  filename:
+            continue
         print(f"Processing {file.name}")
         jdata = json.loads(file.read_bytes())
         for test in jdata:
             b = parse_test(test)
             bin_content.extend(b)
-            break
-        break
+            
+            # break    
+        # break
     Path(f"main.bin").write_bytes(bin_content)
     print(f"Wrote {len(bin_content)} bytes to main.bin")
-    # break
+    
 
 
 if __name__ == "__main__":
