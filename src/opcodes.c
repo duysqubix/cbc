@@ -654,6 +654,27 @@ static gbcycles_t ld_hlm_a(Gameboy *gb){          // 0x32
     return MCYCLE_2;
 }
 
+static gbcycles_t dec_mem_hl(Gameboy *gb){        // 0x35
+    uint16_t address = (uint16_t)(gb->h) << 8 | gb->l;
+    uint8_t value = gb->read(gb, address);
+    uint8_t result = value - 1;
+
+    gb->f &= ~(FLAG_Z  | FLAG_H);
+    gb->f |= FLAG_N;
+
+    if(result == 0x00){
+        gb->f |= FLAG_Z;
+    }
+
+    if((value & 0xf) == 0x00){
+        gb->f |= FLAG_H;
+    }
+
+    gb->write(gb, address, result);
+    gb->pc++;
+    return MCYCLE_2;
+}
+
 static gbcycles_t ld_mem_hl_n(Gameboy *gb){       // 0x36
     uint16_t address = (uint16_t)(gb->h) << 8 | gb->l;
     gb->write(gb, address, gb->read(gb, gb->pc+1));
@@ -1517,7 +1538,7 @@ opcode_def_t *opcodes[512] = {
     [0x32] = &ld_hlm_a,
     [0x33] = NULL,
     [0x34] = NULL,
-    [0x35] = NULL,
+    [0x35] = &dec_mem_hl,
     [0x36] = &ld_mem_hl_n,
     [0x37] = NULL,
     [0x38] = NULL,

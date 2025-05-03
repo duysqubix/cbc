@@ -159,6 +159,7 @@ int main(){
         if(opcode == 0xCB){
             opcode = buffer[i+1];
             offset = 0x100;
+            continue;
         }
 
         if(opcode != current_opcode){
