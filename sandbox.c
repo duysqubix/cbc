@@ -31,7 +31,11 @@ static void clear_memory(Gameboy *gb){
 }
 
 
+
 static void load_state(Gameboy *gb, uint8_t *buffer){
+    uint16_t addr_stack[6];
+    uint8_t val_stack[6];
+
     clear_memory(gb);
     gb->a = buffer[0];
     gb->b = buffer[1];
@@ -45,34 +49,59 @@ static void load_state(Gameboy *gb, uint8_t *buffer){
     gb->pc = (buffer[8] << 8 | buffer[9])-1;
     gb->sp = buffer[10] << 8 | buffer[11];
 
+    int valid_addr_counter = 0;
+
     uint16_t addr1 = buffer[12] << 8 | buffer[13];
     uint8_t val1 = buffer[14];
+    if(val1 != 0) {
+        addr_stack[valid_addr_counter] = addr1;
+        val_stack[valid_addr_counter] = val1;
+        valid_addr_counter++;
+    }
+
     uint16_t addr2 = buffer[15] << 8 | buffer[16];
     uint8_t val2 = buffer[17];
+    if(val2 != 0) {
+        addr_stack[valid_addr_counter] = addr2;
+        val_stack[valid_addr_counter] = val2;
+        valid_addr_counter++;
+    }
+
     uint16_t addr3 = buffer[18] << 8 | buffer[19];
     uint8_t val3 = buffer[20];
+    if(val3 != 0) {
+        addr_stack[valid_addr_counter] = addr3;
+        val_stack[valid_addr_counter] = val3;
+        valid_addr_counter++;
+    }
+
     uint16_t addr4 = buffer[21] << 8 | buffer[22];
     uint8_t val4 = buffer[23];
+    if(val4 != 0) {
+        addr_stack[valid_addr_counter] = addr4;
+        val_stack[valid_addr_counter] = val4;
+        valid_addr_counter++;
+    }
+
     uint16_t addr5 = buffer[24] << 8 | buffer[25];
     uint8_t val5 = buffer[26];
+    if(val5 != 0) {
+        addr_stack[valid_addr_counter] = addr5;
+        val_stack[valid_addr_counter] = val5;
+        valid_addr_counter++;
+    }
+
     uint16_t addr6 = buffer[27] << 8 | buffer[28];
     uint8_t val6 = buffer[29];
+    if(val6 != 0) {
+        addr_stack[valid_addr_counter] = addr6;
+        val_stack[valid_addr_counter] = val6;
+        valid_addr_counter++;
+    }
 
-    gb->memory[addr1] = val1;
-    gb->memory[addr2] = val2;
-    gb->memory[addr3] = val3;
-    gb->memory[addr4] = val4;
-    gb->memory[addr5] = val5;
-    gb->memory[addr6] = val6;
-    
-    // printf("\naddr1: %04X val1: %02X\n", addr1, gb->memory[addr1]);
-    // printf("addr2: %04X val2: %02X\n", addr2, gb->memory[addr2]);
-    // printf("addr3: %04X val3: %02X\n", addr3, gb->memory[addr3]);
-    // printf("addr4: %04X val4: %02X\n", addr4, gb->memory[addr4]);
-    // printf("addr5: %04X val5: %02X\n", addr5, gb->memory[addr5]);
-    // printf("addr6: %04X val6: %02X\n", addr6, gb->memory[addr6]);
-
-    // printf("--------------------------------\n");
+    for(int i = 0; i < valid_addr_counter; i++){
+        gb->memory[addr_stack[i]] = val_stack[i];
+    }
 
 }
 
@@ -128,6 +157,7 @@ int compare_states(Gameboy *gb1, Gameboy *gb2){
 }
 
 int main(){
+
     FILE *bin = fopen(bin_file, "rb");
     
     if(!bin){

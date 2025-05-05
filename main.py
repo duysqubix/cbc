@@ -17,6 +17,8 @@ def parse_test(test):
     ram_initial = initial["ram"]
     ram_final = final["ram"]
 
+    # print(ram_initial)
+    # print(ram_final)
     names = name.split(" ")
     opcode = int(names[0], 16)
     v1 = int(names[1], 16)
@@ -40,6 +42,7 @@ def parse_test(test):
         ram_values.extend(
             (addr.to_bytes(2, "big") + val.to_bytes(1, "big"))
         )
+        # print(addr.to_bytes(2, "big"), val.to_bytes(1, "big"))
     if len(ram_initial) < 6:
         remaining = 6 - len(ram_initial)
         ram_values.extend(b"\x00\x00\x00"*remaining)
@@ -93,12 +96,12 @@ import os
 
 
 def main():
-    filename = os.environ["FILENAME"]
+    filename = os.environ.get("FILENAME")
     bin_content= bytearray()
     for file in default_dir.glob("*.json"):
-        # if file.name !=  filename:
-        #     continue
-        # print(f"Processing {file.name}")
+        if filename and file.name != filename:
+            continue
+        print(f"Processing {file.name}")
         jdata = json.loads(file.read_bytes())
         for test in jdata:
             b = parse_test(test)

@@ -630,6 +630,29 @@ static gbcycles_t dec_l(Gameboy *gb){            // 0x2D
     return MCYCLE_1;
 }
 
+static gbcycles_t ld_l_n(Gameboy *gb){             // 0x2E
+    gb->l = gb->read(gb, gb->pc+1);
+    gb->pc += 2;
+    return MCYCLE_2;
+}
+
+static gbcycles_t cpl(Gameboy *gb){                     // 0x2f
+    gb->a = ~gb->a;
+    gb->f |= (FLAG_N | FLAG_H);
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+
+static gbcycles_t jr_nc_i8(Gameboy *gb){            // 0x30
+    if(!(gb->f & FLAG_C)){
+        int8_t value = (int8_t)gb->read(gb, gb->pc+1);
+        gb->pc += value + 2;
+        return MCYCLE_3;
+    }
+    gb->pc += 2;
+    return MCYCLE_2;
+}
 
 static gbcycles_t ld_sp_nn(Gameboy *gb){           // 0x31
     uint16_t value = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
@@ -652,6 +675,12 @@ static gbcycles_t ld_hlm_a(Gameboy *gb){          // 0x32
 
     gb->pc++;
     return MCYCLE_2;
+}
+
+static gbcycles_t inc_sp(Gameboy *gb){            // 0x33
+    gb->sp++;
+    gb->pc++;
+    return MCYCLE_1;
 }
 
 static gbcycles_t dec_mem_hl(Gameboy *gb){        // 0x35
@@ -747,6 +776,11 @@ static gbcycles_t ld_b_a(Gameboy *gb){             // 0x47
     return MCYCLE_1;
 }
 
+static gbcycles_t ld_c_c(Gameboy *gb){             // 0x49
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 static gbcycles_t ld_c_h(Gameboy *gb){             // 0x4C
     gb->c = gb->h;
     gb->pc++;
@@ -759,14 +793,33 @@ static gbcycles_t ld_c_l(Gameboy *gb){             // 0x4D
     return MCYCLE_1;
 }
 
+static gbcycles_t ld_d_c(Gameboy *gb){             // 0x51
+    gb->d = gb->c;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 static gbcycles_t ld_d_h(Gameboy *gb){             //0x54 
     gb->d = gb->h;
     gb->pc++;
     return MCYCLE_1;
 }
 
+static gbcycles_t ld_d_mem_hl(Gameboy *gb){       // 0x56
+    uint16_t address = (uint16_t)(gb->h) << 8 | gb->l;
+    gb->d = gb->read(gb, address);
+    gb->pc++;
+    return MCYCLE_2;
+}
+
 static gbcycles_t ld_e_l(Gameboy *gb){             // 0x5D
     gb->e = gb->l;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+static gbcycles_t ld_h_b(Gameboy *gb){             // 0x60
+    gb->h = gb->b;
     gb->pc++;
     return MCYCLE_1;
 }
@@ -854,6 +907,29 @@ static gbcycles_t ld_a_l(Gameboy *gb){             // 0x7D
 static gbcycles_t add_a_c(Gameboy *gb){            // 0x81
     uint16_t a = (uint16_t)gb->a;
     uint16_t b = (uint16_t)gb->c;
+    uint16_t result = a + b;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    if ((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+
+    if(((a^b^result) & 0x10)){
+        gb->f |= FLAG_H;
+    }
+
+    if((result & 0x100) != 0){
+        gb->f |= FLAG_C;
+    }
+
+    gb->a = result & 0xff;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+static gbcycles_t add_a_e(Gameboy *gb){            // 0x83
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->e;
     uint16_t result = a + b;
     gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
 
@@ -1014,6 +1090,38 @@ static gbcycles_t adc_a_e(Gameboy *gb){           // 0x8B
     gb->pc++;
     return MCYCLE_1;
 }
+
+static gbcycles_t adc_a_h(Gameboy *gb){           // 0x8C
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->h;
+    
+    uint16_t fc = 0;
+
+    if (gb->f & FLAG_C){
+        fc = 1;
+    }    
+
+    uint16_t result = a + b + fc;
+
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    if ((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+    
+    if((a^b^result) & 0x10){
+        gb->f |= FLAG_H;
+    }
+
+    if((result & 0x100) != 0){
+        gb->f |= FLAG_C;
+    }
+
+    gb->a = result & 0xff;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 
 static gbcycles_t adc_a_mem_hl(Gameboy *gb){     // 0x8E
     uint16_t hl = (uint16_t)gb->h << 8 | (uint16_t)gb->l;
@@ -1203,6 +1311,16 @@ static gbcycles_t xor_c(Gameboy *gb){             // 0xA9
     return MCYCLE_1;
 }
 
+static gbcycles_t xor_h(Gameboy *gb){            // 0xAC
+    gb->a ^= gb->h;
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    if(!gb->a){gb->f |= FLAG_Z;}
+
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 static gbcycles_t xor_hl_mm(Gameboy *gb){         // 0xAE
     uint16_t hl = (uint16_t)gb->h << 8 | (uint16_t)gb->l;
     uint8_t b = (uint8_t)gb->read(gb, hl);
@@ -1259,6 +1377,50 @@ static gbcycles_t or_mem_hl(Gameboy *gb){        // 0xB6
     if(!result){gb->f |= FLAG_Z;}
 
     gb->a = result;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+static gbcycles_t cp_b(Gameboy *gb){            // 0xB8
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->b;
+    uint16_t result = a - b;
+    gb->f &= ~(FLAG_Z  | FLAG_H | FLAG_C);
+    gb->f |= FLAG_N;
+    if((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+
+    if((a^b^result) & 0x10){
+        gb->f |= FLAG_H;
+    }
+
+    if(result & 0x100){
+        gb->f |= FLAG_C;
+    }
+    
+    gb->pc++;
+    return MCYCLE_1;
+}
+
+static gbcycles_t cp_d(Gameboy *gb){            // 0xBA
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->d;
+    uint16_t result = a - b;
+    gb->f &= ~(FLAG_Z  | FLAG_H | FLAG_C);
+    gb->f |= FLAG_N;
+    if((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+
+    if((a^b^result) & 0x10){
+        gb->f |= FLAG_H;
+    }
+
+    if(result & 0x100){
+        gb->f |= FLAG_C;
+    }
+    
     gb->pc++;
     return MCYCLE_1;
 }
@@ -1336,6 +1498,33 @@ static gbcycles_t push_bc(Gameboy *gb){            // 0xC5
     return MCYCLE_4;
 }
 
+static gbcycles_t rst_00h(Gameboy *gb){          // 0xC7
+    uint16_t pch = (gb->pc+1) >> 8;
+    uint16_t pcl = (gb->pc+1) & 0xFF;
+
+    uint16_t sp1 = gb->sp - 1;
+    uint16_t sp2 = gb->sp - 2;
+
+    gb->write(gb, sp1, pch);
+    gb->write(gb, sp2, pcl);
+    gb->sp -= 2;
+    gb->pc = 0x00;
+    
+    return MCYCLE_4;
+}
+
+static gbcycles_t ret_z(Gameboy *gb){            // 0xC8
+    if(gb->f & FLAG_Z){
+        uint16_t sph = gb->read(gb, gb->sp+1);
+        uint16_t spl = gb->read(gb, gb->sp);
+        gb->sp += 2;
+        gb->pc = (sph << 8) | spl;
+        return MCYCLE_4;
+    }
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 static gbcycles_t ret(Gameboy *gb){                // 0xC9
     uint16_t sph = gb->read(gb, gb->sp+1);
     uint16_t spl = gb->read(gb, gb->sp);
@@ -1375,6 +1564,16 @@ static gbcycles_t call_nn(Gameboy *gb){            // 0xCD
     return MCYCLE_6;
 }
 
+static gbcycles_t jp_nc_nn(Gameboy *gb){         // 0xD2
+    if(!(gb->f & FLAG_C)){
+        uint16_t address = gb->read(gb, gb->pc+2) << 8 | gb->read(gb, gb->pc+1);
+        gb->pc = address;
+        return MCYCLE_4;
+    }
+    gb->pc += 3;
+    return MCYCLE_3;
+}
+
 static gbcycles_t call_c_nn(Gameboy *gb){        // 0xDC
 
     if(gb->f & FLAG_C){
@@ -1390,6 +1589,54 @@ static gbcycles_t call_c_nn(Gameboy *gb){        // 0xDC
     }
     gb->pc += 3;
     return MCYCLE_3;
+}
+
+static gbcycles_t sbc_a_n(Gameboy *gb){          // 0xDE
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->read(gb, gb->pc+1);
+
+    uint16_t fc = 0;
+
+    if (gb->f & FLAG_C){
+        fc = 1;
+    }
+
+    uint16_t result = a - b - fc;
+
+    gb->f &= ~(FLAG_Z | FLAG_H | FLAG_C);
+    gb->f |= FLAG_N;
+
+    if ((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+
+    if((a^b^result) & 0x10){
+        gb->f |= FLAG_H;
+    }
+
+    if(result & 0x100){
+        gb->f |= FLAG_C;
+    }
+
+    gb->a = result & 0xff;
+    gb->pc += 2;
+    return MCYCLE_2;
+}
+
+
+static gbcycles_t rst_18h(Gameboy *gb){          // 0xDF
+    uint16_t pch = (gb->pc+1) >> 8;
+    uint16_t pcl = (gb->pc+1) & 0xFF;
+
+    uint16_t sp1 = gb->sp - 1;
+    uint16_t sp2 = gb->sp - 2;
+
+    gb->write(gb, sp1, pch);
+    gb->write(gb, sp2, pcl);
+    gb->sp -= 2;
+    gb->pc = 0x18;
+    
+    return MCYCLE_4;
 }
 
 static gbcycles_t ldh_mem_n_a(Gameboy *gb){        // 0xE0
@@ -1578,12 +1825,12 @@ opcode_def_t *opcodes[512] = {
     [0x2B] = &dec_hl,
     [0x2C] = &inc_l,
     [0x2D] = &dec_l,
-    [0x2E] = NULL,
-    [0x2F] = NULL,
-    [0x30] = NULL,
+    [0x2E] = &ld_l_n,
+    [0x2F] = &cpl,
+    [0x30] = &jr_nc_i8,
     [0x31] = &ld_sp_nn,
     [0x32] = &ld_hlm_a,
-    [0x33] = NULL,
+    [0x33] = &inc_sp,
     [0x34] = NULL,
     [0x35] = &dec_mem_hl,
     [0x36] = &ld_mem_hl_n,
@@ -1605,7 +1852,7 @@ opcode_def_t *opcodes[512] = {
     [0x46] = NULL,
     [0x47] = &ld_b_a,
     [0x48] = NULL,
-    [0x49] = NULL,
+    [0x49] = &ld_c_c,
     [0x4A] = NULL,
     [0x4B] = NULL,
     [0x4C] = &ld_c_h,
@@ -1613,12 +1860,12 @@ opcode_def_t *opcodes[512] = {
     [0x4E] = NULL,
     [0x4F] = NULL,
     [0x50] = NULL,
-    [0x51] = NULL,
+    [0x51] = &ld_d_c,
     [0x52] = NULL,
     [0x53] = NULL,
     [0x54] = &ld_d_h,
     [0x55] = NULL,
-    [0x56] = NULL,
+    [0x56] = &ld_d_mem_hl,
     [0x57] = NULL,
     [0x58] = NULL,
     [0x59] = NULL,
@@ -1628,7 +1875,7 @@ opcode_def_t *opcodes[512] = {
     [0x5D] = &ld_e_l,
     [0x5E] = NULL,
     [0x5F] = NULL,
-    [0x60] = NULL,
+    [0x60] = &ld_h_b,
     [0x61] = NULL,
     [0x62] = &ld_h_d,
     [0x63] = NULL,
@@ -1663,7 +1910,7 @@ opcode_def_t *opcodes[512] = {
     [0x80] = NULL,
     [0x81] = &add_a_c,
     [0x82] = NULL,
-    [0x83] = NULL,
+    [0x83] = &add_a_e,
     [0x84] = &add_a_h,
     [0x85] = NULL,
     [0x86] = NULL,
@@ -1672,7 +1919,7 @@ opcode_def_t *opcodes[512] = {
     [0x89] = &adc_a_c,
     [0x8A] = NULL,
     [0x8B] = &adc_a_e,
-    [0x8C] = NULL,
+    [0x8C] = &adc_a_h,
     [0x8D] = NULL,
     [0x8E] = &adc_a_mem_hl,
     [0x8F] = NULL,
@@ -1704,7 +1951,7 @@ opcode_def_t *opcodes[512] = {
     [0xA9] = &xor_c,
     [0xAA] = NULL,
     [0xAB] = NULL,
-    [0xAC] = NULL,
+    [0xAC] = &xor_h,
     [0xAD] = NULL,
     [0xAE] = &xor_hl_mm,
     [0xAF] = &xor_a,
@@ -1716,9 +1963,9 @@ opcode_def_t *opcodes[512] = {
     [0xB5] = &or_l,
     [0xB6] = &or_mem_hl,
     [0xB7] = NULL,
-    [0xB8] = NULL,
+    [0xB8] = &cp_b,
     [0xB9] = NULL,
-    [0xBA] = NULL,
+    [0xBA] = &cp_d,
     [0xBB] = NULL,
     [0xBC] = NULL,
     [0xBD] = &cp_l,
@@ -1731,8 +1978,8 @@ opcode_def_t *opcodes[512] = {
     [0xC4] = &call_nz_nn,
     [0xC5] = &push_bc,
     [0xC6] = NULL,
-    [0xC7] = NULL,
-    [0xC8] = NULL,
+    [0xC7] = &rst_00h,
+    [0xC8] = &ret_z,
     [0xC9] = &ret,
     [0xCA] = NULL,
     [0xCB] = NULL,
@@ -1742,7 +1989,7 @@ opcode_def_t *opcodes[512] = {
     [0xCF] = NULL,
     [0xD0] = NULL,
     [0xD1] = NULL,
-    [0xD2] = NULL,
+    [0xD2] = &jp_nc_nn,
     [0xD3] = NULL,
     [0xD4] = NULL,
     [0xD5] = NULL,
@@ -1754,8 +2001,8 @@ opcode_def_t *opcodes[512] = {
     [0xDB] = NULL,
     [0xDC] = &call_c_nn,
     [0xDD] = NULL,
-    [0xDE] = NULL,
-    [0xDF] = NULL,
+    [0xDE] = &sbc_a_n,
+    [0xDF] = &rst_18h,
     [0xE0] = &ldh_mem_n_a,
     [0xE1] = &pop_hl,
     [0xE2] = NULL,
