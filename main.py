@@ -111,7 +111,7 @@ import os
 def main():
     filename = os.environ.get("FILENAME")
     bin_content = bytearray()
-    for file in default_dir.glob("*.json"):
+    for file in sorted(default_dir.glob("*.json")):
         if filename and file.name != filename:
             continue
         print(f"Processing {file.name}")
@@ -122,7 +122,7 @@ def main():
 
         #     break
         # break
-    Path(f"main.bin").write_bytes(bin_content)
+    Path("main.bin").write_bytes(bin_content)
     print(f"Wrote {len(bin_content)} bytes to main.bin")
 
 
