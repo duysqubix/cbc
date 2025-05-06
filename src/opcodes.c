@@ -793,6 +793,12 @@ static gbcycles_t ld_c_l(Gameboy *gb){             // 0x4D
     return MCYCLE_1;
 }
 
+static gbcycles_t ld_d_b(Gameboy *gb){             // 0x50
+    gb->d = gb->b;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 static gbcycles_t ld_d_c(Gameboy *gb){             // 0x51
     gb->d = gb->c;
     gb->pc++;
@@ -1859,7 +1865,7 @@ opcode_def_t *opcodes[512] = {
     [0x4D] = &ld_c_l,
     [0x4E] = NULL,
     [0x4F] = NULL,
-    [0x50] = NULL,
+    [0x50] = &ld_d_b,
     [0x51] = &ld_d_c,
     [0x52] = NULL,
     [0x53] = NULL,
