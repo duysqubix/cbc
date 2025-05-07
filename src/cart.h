@@ -35,10 +35,10 @@ typedef struct Cartridge {
 
 
     //public methods 
-    const uint8_t (*read)(struct Cartridge *self, uint16_t address);
-    const void    (*write)(struct Cartridge *self, uint16_t address, uint8_t value);
-    const int     (*load_rom)(struct Cartridge *self, const char *filename);
-    const void (*free)(struct Cartridge *self);
+    uint8_t (*read)    (struct Cartridge *self, uint16_t address);
+    void    (*write)   (struct Cartridge *self, uint16_t address, uint8_t value);
+    int     (*load_rom)(struct Cartridge *self, const char *filename);
+    void    (*free)    (struct Cartridge *self);
 
 }Cartridge;
 

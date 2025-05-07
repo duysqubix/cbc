@@ -106,7 +106,7 @@ static void load_state(Gameboy *gb, uint8_t *buffer){
 }
 
 void dump_state(Gameboy *gb){
-    printf("A: %02X B: %02X C: %02X D: %02X E: %02X F: %04b H: %02X L: %02X PC: %04X SP: %04X\n",
+    printf("A: %02X B: %02X C: %02X D: %02X E: %02X F: %02X H: %02X L: %02X PC: %04X SP: %04X\n",
            gb->a, gb->b, gb->c, gb->d, gb->e, (gb->f >> 4), gb->h, gb->l, gb->pc, gb->sp);
     for(int i = 0; i < 0x10000; i++){
         if(gb->memory[i] != 0){

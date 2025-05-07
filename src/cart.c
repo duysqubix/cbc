@@ -51,12 +51,6 @@ void free_cartridge(Cartridge *self){
  int cart_load_rom(Cartridge *self, const char *filename){
     log_trace("Loading ROM: %s", filename);
 
-    if(!file_exists(filename)){
-        log_error("ROM file not found: %s", filename);
-        // free_cartridge(self)
-        return 0;
-    }
-
     FILE *file = fopen(filename, "rb");
     if (!file){
         if(errno == ENOENT){
@@ -64,7 +58,7 @@ void free_cartridge(Cartridge *self){
         }else{
             log_error("Failed to open ROM: %s", filename);
         }
-        // free_cartridge(self);
+        free_cartridge(self);
         return 0;
     }
     log_trace("ROM file opened: %s", filename);
