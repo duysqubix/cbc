@@ -1485,6 +1485,37 @@ static gbcycles_t adc_a_c(Gameboy *gb){           // 0x89
     return MCYCLE_1;
 }
 
+static gbcycles_t adc_a_d(Gameboy *gb){           // 0x8A
+    uint16_t a = (uint16_t)gb->a;
+    uint16_t b = (uint16_t)gb->d;
+    
+    uint16_t fc = 0;
+
+    if (gb->f & FLAG_C){
+        fc = 1;
+    }
+
+    uint16_t result = a + b + fc;
+
+    gb->f &= ~(FLAG_Z | FLAG_N | FLAG_H | FLAG_C);
+
+    if ((result & 0xff) == 0){
+        gb->f |= FLAG_Z;
+    }
+
+    if((a^b^result) & 0x10){
+        gb->f |= FLAG_H;
+    }
+
+    if((result & 0x100) != 0){
+        gb->f |= FLAG_C;
+    }
+
+    gb->a = result & 0xff;
+    gb->pc++;
+    return MCYCLE_1;
+}
+
 
 static gbcycles_t adc_a_e(Gameboy *gb){           // 0x8B
     uint16_t a = (uint16_t)gb->a;
@@ -2343,7 +2374,7 @@ opcode_def_t *opcodes[512] = {
     [0x87] = &add_a_a,
     [0x88] = &adc_a_b,
     [0x89] = &adc_a_c,
-    [0x8A] = NULL,
+    [0x8A] = &adc_a_d,
     [0x8B] = &adc_a_e,
     [0x8C] = &adc_a_h,
     [0x8D] = NULL,
